@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error("[Instagram Profile] Error:", err);
     return NextResponse.json(
-      { success: false, error: "Failed to load profile" },
+      { success: false, error: "Failed to load profile", detail: err instanceof Error ? err.message : String(err) },
       { status: 500 }
     );
   }
