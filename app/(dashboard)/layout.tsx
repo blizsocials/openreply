@@ -6,10 +6,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db/client";
 import { ensureWorkspaceForUser } from "@/lib/workspace";
 
-export async function generateMetadata() {
-  const { t } = await getI18n();
-  return { title: "Blizsocials Automations" };
-}
+export const metadata = { title: "Blizsocials Automations" };
 
 export default async function DashboardLayout({
   children,
