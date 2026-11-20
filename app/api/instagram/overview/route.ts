@@ -137,9 +137,26 @@ export async function GET(request: NextRequest) {
       ? MAX_POSTS
       : Math.min(requestedCount as number, MAX_POSTS);
 
-    const media = await getAllUserMedia({ context: accessToken, max: target });
+    // Blizsocials: optional date window (posts published between since and
+    // until, inclusive, as YYYY-MM-DD). Used for weekly and custom reports.
+    const sinceParam = request.nextUrl.searchParams.get("since");
+    const untilParam = request.nextUrl.searchParams.get("until");
+    const sinceMs = sinceParam ? Date.parse(`${sinceParam}T00:00:00Z`) : NaN;
+    const untilMs = untilParam ? Date.parse(`${untilParam}T23:59:59Z`) : NaN;
+    const windowed = Number.isFinite(sinceMs) || Number.isFinite(untilMs);
+
+    const allMedia = await getAllUserMedia({ context: accessToken, max: windowed ? MAX_POSTS : target });
+    const media = windowed
+      ? allMedia.filter((m) => {
+          const t = m.timestamp ? Date.parse(m.timestamp) : NaN;
+          if (!Number.isFinite(t)) return false;
+          if (Number.isFinite(sinceMs) && t < sinceMs) return false;
+          if (Number.isFinite(untilMs) && t > untilMs) return false;
+          return true;
+        })
+      : allMedia;
     const truncated =
-      media.length >= MAX_POSTS ||
+      allMedia.length >= MAX_POSTS ||
       (account.provider === "ZERNIO" && media.length >= 25);
 
     // Likes and comments come free with basic media fields. Views / reach /

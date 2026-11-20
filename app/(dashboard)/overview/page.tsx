@@ -30,6 +30,9 @@ function formatDate(iso: string, locale: Locale): string {
 }
 
 const COUNT_OPTIONS = [
+  { value: "7d", label: "Last 7 days" },
+  { value: "30d", label: "Last 30 days" },
+  { value: "custom", label: "Custom dates" },
   { value: "25", label: "Last 25" },
   { value: "50", label: "Last 50" },
   { value: "100", label: "Last 100" },
@@ -42,14 +45,26 @@ export default function OverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState("all");
-  const [count, setCount] = useState("50");
+  const [count, setCount] = useState("7d");
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  const [customFrom, setCustomFrom] = useState(() => new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10));
+  const [customTo, setCustomTo] = useState(() => new Date().toISOString().slice(0, 10));
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (selectedAccountId !== "all") {
       params.set("instagramAccountId", selectedAccountId);
     }
-    params.set("count", count);
+    if (count === "7d" || count === "30d") {
+      const days = count === "7d" ? 7 : 30;
+      params.set("since", new Date(Date.now() - (days - 1) * 86_400_000).toISOString().slice(0, 10));
+      params.set("until", new Date().toISOString().slice(0, 10));
+    } else if (count === "custom") {
+      params.set("since", customFrom);
+      params.set("until", customTo);
+    } else {
+      params.set("count", count);
+    }
 
     fetch(`/api/instagram/overview?${params}`)
       .then((r) => r.json())
@@ -63,7 +78,7 @@ export default function OverviewPage() {
       })
       .catch(() => setError("Failed to load overview"))
       .finally(() => setLoading(false));
-  }, [selectedAccountId, count]);
+  }, [selectedAccountId, count, customFrom, customTo]);
 
   function handleAccountChange(accountId: string) {
     setLoading(true);
@@ -114,7 +129,7 @@ export default function OverviewPage() {
       {data.limitations?.map(note => <p key={note} className="text-sm text-muted">{note}</p>)}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold text-foreground">{t("Overview")}</h1>
+          <h1 className="text-lg font-semibold text-foreground">Metrics</h1>
           <p className="text-sm text-muted mt-1">
             {data.provider !== "ZERNIO" && data.requestedCount === "all" ? t("All-time") : t("Recent")} —{" "}
             {t(totals.posts === 1 ? "{count} post" : "{count} posts", { count: totals.posts })} {t("from @")}
@@ -141,11 +156,23 @@ export default function OverviewPage() {
             >
               {COUNT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {t(o.label)}
+                  {o.label}
                 </option>
               ))}
             </select>
           </label>
+          {count === "custom" && (
+            <>
+              <label className="flex flex-col gap-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">From</span>
+                <input type="date" value={customFrom} max={customTo} onChange={(e) => setCustomFrom(e.target.value)} className="rounded-xl border border-border bg-surface px-3 py-2 text-sm" />
+              </label>
+              <label className="flex flex-col gap-2 text-sm">
+                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">To</span>
+                <input type="date" value={customTo} min={customFrom} max={today} onChange={(e) => setCustomTo(e.target.value)} className="rounded-xl border border-border bg-surface px-3 py-2 text-sm" />
+              </label>
+            </>
+          )}
           {accounts.length > 1 && (
             <AccountSelect
               accounts={accounts.map((a) => ({

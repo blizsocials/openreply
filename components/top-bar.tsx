@@ -12,7 +12,9 @@ import { usePathname } from "next/navigation";
 
 const pageTitles: Record<string, StaticMessageKey> = {
   "/dashboard": "Dashboard",
-  "/overview": "Overview",
+  "/overview": "Metrics",
+  "/clients": "Clients",
+  "/schedule": "Schedule",
   "/inbox": "Inbox",
   "/campaigns/import": "Import campaigns",
   "/campaigns": "Campaigns",
