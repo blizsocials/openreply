@@ -204,6 +204,7 @@ async function sweepCampaign({
       continue;
     }
 
+    if (mediaId === mediaIds[0]) stat.errors.push(`DEBUG ${mediaId}: ` + JSON.stringify(comments.slice(0, 6).map((c) => [c.text, c.from ?? null, c.timestamp])));
     // Keep only comments that (a) aren't the account's own, (b) match the
     // keyword, and (c) have no reply from the account owner yet.
     const needsAction = comments.filter((c) => {
