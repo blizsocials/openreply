@@ -457,6 +457,8 @@ model ScheduledPost {
   caption            String    @default("")
   mediaAssetIds      String[]
   platforms          String[]  @default(["instagram"])
+  mediaKind          String    @default("IMAGE")
+  videoUrl           String?
   facebookPostId     String?
   scheduledAt        DateTime
   status             String    @default("SCHEDULED")

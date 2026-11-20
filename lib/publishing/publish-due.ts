@@ -30,8 +30,8 @@ async function graph<T>(method: "GET" | "POST", path: string, token: string, par
   return data;
 }
 
-async function waitUntilReady(containerId: string, token: string) {
-  for (let i = 0; i < 20; i++) {
+async function waitUntilReady(containerId: string, token: string, tries = 20) {
+  for (let i = 0; i < tries; i++) {
     const status = await graph<{ status_code?: string }>("GET", containerId, token, { fields: "status_code" });
     if (!status.status_code || status.status_code === "FINISHED") return;
     if (status.status_code === "ERROR" || status.status_code === "EXPIRED") {
@@ -84,8 +84,16 @@ async function publishOne(postId: string) {
   // Facebook first is not required; each platform is skipped once done so a
   // retry never posts twice.
   if (platforms.includes("facebook") && !post.facebookPostId) {
-    const urlsForFb = post.mediaAssetIds.map((id: string) => `${getBaseUrl()}/api/media/${id}`);
-    const fbId = await publishToFacebook(token, urlsForFb, post.caption);
+    let fbId: string;
+    if (post.mediaKind === "REEL" && post.videoUrl) {
+      const fb = decodeFacebookLoginToken(token);
+      if (!fb) throw new Error("Facebook posting needs the account connected with Continue with Facebook");
+      const res = await fbGraph<{ id: string }>(`${fb.page}/videos`, fb.t, { file_url: post.videoUrl, description: post.caption });
+      fbId = res.id;
+    } else {
+      const urlsForFb = post.mediaAssetIds.map((id: string) => `${getBaseUrl()}/api/media/${id}`);
+      fbId = await publishToFacebook(token, urlsForFb, post.caption);
+    }
     await prisma.scheduledPost.update({ where: { id: post.id }, data: { facebookPostId: fbId } });
   }
   if (!platforms.includes("instagram") || post.publishedMediaId) {
@@ -99,7 +107,17 @@ async function publishOne(postId: string) {
   const urls = post.mediaAssetIds.map((id: string) => `${getBaseUrl()}/api/media/${id}`);
 
   let creationId: string;
-  if (urls.length === 1) {
+  if (post.mediaKind === "REEL" && post.videoUrl) {
+    const container = await graph<{ id: string }>("POST", `${ig}/media`, token, {
+      media_type: "REELS",
+      video_url: post.videoUrl,
+      caption: post.caption,
+      share_to_feed: "true",
+    });
+    creationId = container.id;
+    // Videos take a while for Instagram to process: up to about 5 minutes.
+    await waitUntilReady(creationId, token, 100);
+  } else if (urls.length === 1) {
     const container = await graph<{ id: string }>("POST", `${ig}/media`, token, {
       image_url: urls[0],
       caption: post.caption,

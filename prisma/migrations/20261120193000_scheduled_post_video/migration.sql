@@ -1,0 +1,2 @@
+ALTER TABLE "ScheduledPost" ADD COLUMN "mediaKind" TEXT NOT NULL DEFAULT 'IMAGE';
+ALTER TABLE "ScheduledPost" ADD COLUMN "videoUrl" TEXT;

@@ -7,6 +7,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { upload as blobUpload } from "@vercel/blob/client";
 
 type Account = { id: string; username: string; name?: string | null };
 type Upload = { id: string; url: string; preview: string };
@@ -15,6 +16,7 @@ type Post = {
   instagramAccountId: string;
   caption: string;
   mediaAssetIds: string[];
+  mediaKind?: string;
   scheduledAt: string;
   platforms?: string[];
   facebookPostId?: string | null;
@@ -26,18 +28,36 @@ type Post = {
 const BLACK = "#0E0E0E";
 const YELLOW = "#FFD701";
 
-async function toJpeg(file: File): Promise<Blob> {
+const SIZES = [
+  { id: "portrait", label: "Portrait 4:5 (1080×1350), best for feed", w: 1080, h: 1350 },
+  { id: "square", label: "Square 1:1 (1080×1080)", w: 1080, h: 1080 },
+  { id: "landscape", label: "Landscape 1.91:1 (1080×566)", w: 1080, h: 566 },
+  { id: "story", label: "Story 9:16 (1080×1920), Facebook only", w: 1080, h: 1920 },
+  { id: "pinterest", label: "Pinterest 2:3 (1000×1500)", w: 1000, h: 1500 },
+  { id: "youtube", label: "YouTube thumbnail 16:9 (1280×720)", w: 1280, h: 720 },
+] as const;
+type SizeId = (typeof SIZES)[number]["id"];
+
+// Centre-crops to the chosen size so every platform accepts the image.
+async function toJpeg(file: File, sizeId: SizeId): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
-  const max = 1440;
-  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  const size = SIZES.find((s) => s.id === sizeId) ?? SIZES[0];
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
+  canvas.width = size.w;
+  canvas.height = size.h;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not read the image");
+  const target = size.w / size.h;
+  const source = bitmap.width / bitmap.height;
+  let sw = bitmap.width;
+  let sh = bitmap.height;
+  if (source > target) sw = Math.round(bitmap.height * target);
+  else sh = Math.round(bitmap.width / target);
+  const sx = Math.round((bitmap.width - sw) / 2);
+  const sy = Math.round((bitmap.height - sh) / 2);
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, sx, sy, sw, sh, 0, 0, size.w, size.h);
   return new Promise((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Could not convert image"))), "image/jpeg", 0.9)
   );
@@ -65,6 +85,10 @@ export default function SchedulePage() {
   const [when, setWhen] = useState(defaultTime);
   const [toInstagram, setToInstagram] = useState(true);
   const [toFacebook, setToFacebook] = useState(false);
+  const [kind, setKind] = useState<"IMAGE" | "REEL">("IMAGE");
+  const [sizeId, setSizeId] = useState<SizeId>("portrait");
+  const [video, setVideo] = useState<{ url: string; preview: string } | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -105,7 +129,7 @@ export default function SchedulePage() {
       const room = 10 - uploads.length;
       const next: Upload[] = [];
       for (const file of Array.from(files).slice(0, room)) {
-        const jpeg = await toJpeg(file);
+        const jpeg = await toJpeg(file, sizeId);
         const res = await fetch("/api/media", { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: jpeg });
         const payload = await res.json();
         if (!payload.success) throw new Error(payload.error ?? "Upload failed");
@@ -119,11 +143,34 @@ export default function SchedulePage() {
     }
   }
 
+  async function onVideo(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    if (file.size > 300 * 1024 * 1024) return setError("Videos must be under 300 MB");
+    setBusy(true);
+    setProgress(0);
+    try {
+      const result = await blobUpload(`videos/${file.name.replace(/[^A-Za-z0-9._-]/g, "_")}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/blob-upload",
+        contentType: file.type || "video/mp4",
+        onUploadProgress: (e) => setProgress(Math.round(e.percentage)),
+      });
+      setVideo({ url: result.url, preview: URL.createObjectURL(file) });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Video upload failed");
+    } finally {
+      setBusy(false);
+      setProgress(null);
+    }
+  }
+
   async function schedule(now: boolean) {
     setError(null);
     setNotice(null);
     if (!accountId) return setError("Choose a client account");
-    if (!uploads.length) return setError("Add at least one image");
+    if (kind === "IMAGE" && !uploads.length) return setError("Add at least one image");
+    if (kind === "REEL" && !video) return setError("Upload a video first");
     const platforms = [toInstagram ? "instagram" : null, toFacebook ? "facebook" : null].filter(Boolean);
     if (!platforms.length) return setError("Choose Instagram, Facebook or both");
     const at = now ? new Date() : new Date(when);
@@ -136,7 +183,9 @@ export default function SchedulePage() {
         body: JSON.stringify({
           instagramAccountId: accountId,
           caption,
-          mediaAssetIds: uploads.map((u) => u.id),
+          mediaAssetIds: kind === "IMAGE" ? uploads.map((u) => u.id) : [],
+          mediaKind: kind,
+          videoUrl: kind === "REEL" ? video?.url : null,
           scheduledAt: at.toISOString(),
           platforms,
         }),
@@ -145,6 +194,7 @@ export default function SchedulePage() {
       if (!payload.success) throw new Error(payload.error ?? "Could not schedule");
       setNotice(now ? "Publishing within a minute." : `Scheduled for ${at.toLocaleString()}.`);
       setUploads([]);
+      setVideo(null);
       setCaption("");
       loadPosts();
     } catch (e) {
@@ -198,6 +248,50 @@ export default function SchedulePage() {
             </div>
           </fieldset>
 
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Post type">
+            {(["IMAGE", "REEL"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setKind(k)}
+                aria-pressed={kind === k}
+                className="rounded-xl px-4 py-3 text-sm font-semibold border border-border"
+                style={kind === k ? { background: BLACK, color: YELLOW } : undefined}
+              >
+                {k === "IMAGE" ? "Photo or carousel" : "Reel or video"}
+              </button>
+            ))}
+          </div>
+
+          {kind === "REEL" && (
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-semibold">Video (MP4 or MOV, 9:16 works best, under 300 MB)</span>
+              {video ? (
+                <div className="flex items-center gap-3">
+                  <video src={video.preview} className="h-32 rounded-lg" muted controls />
+                  <button type="button" onClick={() => setVideo(null)} className="text-sm font-semibold underline">Remove</button>
+                </div>
+              ) : (
+                <label className="rounded-xl border-2 border-dashed border-border px-4 py-6 text-sm text-muted cursor-pointer text-center">
+                  {progress !== null ? `Uploading… ${progress}%` : "Choose a video"}
+                  <input type="file" accept="video/mp4,video/quicktime" className="sr-only" onChange={(e) => { void onVideo(e.target.files?.[0]); e.target.value = ""; }} />
+                </label>
+              )}
+            </div>
+          )}
+
+          {kind === "IMAGE" && (
+          <label className="flex flex-col gap-2 text-sm font-semibold">
+            Image size (applied as you add images)
+            <select value={sizeId} onChange={(e) => setSizeId(e.target.value as SizeId)} className={field}>
+              {SIZES.map((sz) => (
+                <option key={sz.id} value={sz.id}>{sz.label}</option>
+              ))}
+            </select>
+          </label>
+          )}
+
+          {kind === "IMAGE" && (
           <div className="flex flex-col gap-2">
             <span className="text-sm font-semibold">Images (1 for a post, 2 to 10 for a carousel)</span>
             <div className="flex flex-wrap gap-3">
@@ -224,6 +318,8 @@ export default function SchedulePage() {
               )}
             </div>
           </div>
+
+          )}
 
           <label className="flex flex-col gap-2 text-sm font-semibold">
             Caption
@@ -260,7 +356,9 @@ export default function SchedulePage() {
                 <span className="text-sm font-semibold">{account?.username ?? "account"}</span>
               </div>
               <div className="aspect-square bg-[#F0EEE6] flex items-center justify-center">
-                {uploads[0] ? (
+                {kind === "REEL" && video ? (
+                  <video src={video.preview} className="h-full w-full object-cover" muted autoPlay loop playsInline />
+                ) : uploads[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={uploads[0].preview} alt="Post preview" className="h-full w-full object-cover" />
                 ) : (
@@ -299,8 +397,12 @@ function PostRow({ post, username, onCancel }: { post: Post; username?: string; 
   const s = STATUS_STYLE[post.status] ?? STATUS_STYLE.SCHEDULED;
   return (
     <div className="flex flex-wrap items-center gap-4 border-t border-border pt-3">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`/api/media/${post.mediaAssetIds[0]}`} alt="" className="h-14 w-14 rounded-lg object-cover" />
+      {post.mediaAssetIds[0] ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={`/api/media/${post.mediaAssetIds[0]}`} alt="" className="h-14 w-14 rounded-lg object-cover" />
+      ) : (
+        <span className="h-14 w-14 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: BLACK, color: YELLOW }}>Reel</span>
+      )}
       <div className="flex flex-col min-w-0" style={{ flex: "1 1 220px" }}>
         <span className="text-sm font-semibold">@{username ?? "account"} · {new Date(post.scheduledAt).toLocaleString()} · {(post.platforms?.length ? post.platforms : ["instagram"]).map((p) => (p === "facebook" ? "Facebook" : "Instagram")).join(" + ")}</span>
         <span className="text-sm text-muted truncate">{post.caption || "No caption"}{post.mediaAssetIds.length > 1 ? ` · carousel of ${post.mediaAssetIds.length}` : ""}</span>

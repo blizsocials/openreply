@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
 const createSchema = z.object({
   instagramAccountId: z.string().min(1),
   caption: z.string().max(2200).default(""),
-  mediaAssetIds: z.array(z.string().min(1)).min(1).max(10),
+  mediaAssetIds: z.array(z.string().min(1)).max(10).default([]),
+  mediaKind: z.enum(["IMAGE", "REEL"]).default("IMAGE"),
+  videoUrl: z.string().url().optional().nullable(),
   scheduledAt: z.string().datetime(),
   platforms: z.array(z.enum(["instagram", "facebook"])).min(1).default(["instagram"]),
 });
@@ -38,6 +40,13 @@ export async function POST(request: NextRequest) {
     select: { id: true },
   });
   if (!account) return NextResponse.json({ success: false, error: "Account not found" }, { status: 404 });
+  if (input.mediaKind === "REEL") {
+    if (!input.videoUrl || !new URL(input.videoUrl).hostname.endsWith(".blob.vercel-storage.com")) {
+      return NextResponse.json({ success: false, error: "Upload a video first" }, { status: 400 });
+    }
+  } else if (input.mediaAssetIds.length === 0) {
+    return NextResponse.json({ success: false, error: "Add at least one image" }, { status: 400 });
+  }
   const owned = await prisma.mediaAsset.count({ where: { id: { in: input.mediaAssetIds }, workspaceId } });
   if (owned !== input.mediaAssetIds.length) {
     return NextResponse.json({ success: false, error: "Image not found" }, { status: 400 });
@@ -49,6 +58,8 @@ export async function POST(request: NextRequest) {
       caption: input.caption,
       mediaAssetIds: input.mediaAssetIds,
       platforms: input.platforms,
+      mediaKind: input.mediaKind,
+      videoUrl: input.mediaKind === "REEL" ? input.videoUrl : null,
       scheduledAt: new Date(input.scheduledAt),
     },
   });
