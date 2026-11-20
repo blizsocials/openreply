@@ -113,3 +113,16 @@ export async function uploadToYoutube(connectionId: string, videoUrl: string, ca
   if (!put.ok || !data.id) throw new Error(`YouTube: ${data.error?.message ?? put.status}`);
   return data.id;
 }
+
+/** Uploads a custom thumbnail (JPEG under 2 MB). Needs a verified YouTube channel. */
+export async function setYoutubeThumbnail(connectionId: string, videoId: string, imageUrl: string): Promise<void> {
+  const token = await youtubeAccessToken(connectionId);
+  const image = await fetch(imageUrl);
+  if (!image.ok) throw new Error("Could not read the cover image");
+  const res = await fetch(`https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${encodeURIComponent(videoId)}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "image/jpeg" },
+    body: await image.arrayBuffer(),
+  });
+  if (!res.ok) throw new Error(`YouTube thumbnail: ${(await res.text()).slice(0, 200)}`);
+}

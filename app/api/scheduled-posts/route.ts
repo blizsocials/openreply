@@ -23,6 +23,7 @@ const createSchema = z.object({
   mediaAssetIds: z.array(z.string().min(1)).max(10).default([]),
   mediaKind: z.enum(["IMAGE", "REEL"]).default("IMAGE"),
   videoUrl: z.string().url().optional().nullable(),
+  coverAssetId: z.string().min(1).optional().nullable(),
   scheduledAt: z.string().datetime(),
   platforms: z.array(z.enum(["instagram", "facebook"])).default(["instagram"]),
   socialConnectionIds: z.array(z.string().min(1)).max(10).default([]),
@@ -63,8 +64,9 @@ export async function POST(request: NextRequest) {
   } else if (input.mediaAssetIds.length === 0) {
     return NextResponse.json({ success: false, error: "Add at least one image" }, { status: 400 });
   }
-  const owned = await prisma.mediaAsset.count({ where: { id: { in: input.mediaAssetIds }, workspaceId } });
-  if (owned !== input.mediaAssetIds.length) {
+  const assetIds = [...input.mediaAssetIds, ...(input.coverAssetId ? [input.coverAssetId] : [])];
+  const owned = await prisma.mediaAsset.count({ where: { id: { in: assetIds }, workspaceId } });
+  if (owned !== assetIds.length) {
     return NextResponse.json({ success: false, error: "Image not found" }, { status: 400 });
   }
   const post = await prisma.scheduledPost.create({
@@ -77,6 +79,7 @@ export async function POST(request: NextRequest) {
       socialConnectionIds: input.socialConnectionIds,
       mediaKind: input.mediaKind,
       videoUrl: input.mediaKind === "REEL" ? input.videoUrl : null,
+      coverAssetId: input.mediaKind === "REEL" ? input.coverAssetId ?? null : null,
       scheduledAt: new Date(input.scheduledAt),
     },
   });

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db/client";
 import { getBaseUrl, getMetaGraphApiVersion } from "@/lib/env";
 import { decryptToken } from "@/lib/meta/oauth";
 import { decodeFacebookLoginToken, metaFetch } from "@/lib/meta/facebook-login";
-import { uploadToYoutube } from "@/lib/connect/youtube";
+import { uploadToYoutube, setYoutubeThumbnail } from "@/lib/connect/youtube";
 
 /**
  * Blizsocials scheduler: publishes posts whose time has come.
@@ -54,6 +54,17 @@ async function fbGraph<T>(path: string, token: string, params: Record<string, st
   return data;
 }
 
+/** Sets a custom cover on a Facebook Page video. */
+async function setFacebookThumbnail(videoId: string, token: string, imageUrl: string) {
+  const image = await fetch(imageUrl);
+  if (!image.ok) return;
+  const form = new FormData();
+  form.set("source", new Blob([await image.arrayBuffer()], { type: "image/jpeg" }), "cover.jpg");
+  form.set("is_preferred", "true");
+  form.set("access_token", token);
+  await fetch(`https://graph.facebook.com/${getMetaGraphApiVersion()}/${videoId}/thumbnails`, { method: "POST", body: form });
+}
+
 /** Posts the images and caption to the client's Facebook Page. */
 async function publishToFacebook(accessToken: string, urls: string[], caption: string): Promise<string> {
   const fb = decodeFacebookLoginToken(accessToken);
@@ -92,6 +103,10 @@ async function publishOne(postId: string) {
     if (connection.platform === "youtube") {
       if (!post.videoUrl) throw new Error("YouTube needs a video");
       done[connectionId] = await uploadToYoutube(connection.id, post.videoUrl, post.caption);
+      if (post.coverAssetId) {
+        // A custom thumbnail needs a verified YouTube channel; never fail the post over it.
+        await setYoutubeThumbnail(connection.id, done[connectionId], `${getBaseUrl()}/api/media/${post.coverAssetId}`).catch(() => {});
+      }
     }
     await prisma.scheduledPost.update({ where: { id: post.id }, data: { externalPostIds: done } });
   }
@@ -105,6 +120,7 @@ async function publishOne(postId: string) {
       if (!fb) throw new Error("Facebook posting needs the account connected with Continue with Facebook");
       const res = await fbGraph<{ id: string }>(`${fb.page}/videos`, fb.t, { file_url: post.videoUrl, description: post.caption });
       fbId = res.id;
+      if (post.coverAssetId) await setFacebookThumbnail(res.id, fb.t, `${getBaseUrl()}/api/media/${post.coverAssetId}`).catch(() => {});
     } else {
       const urlsForFb = post.mediaAssetIds.map((id: string) => `${getBaseUrl()}/api/media/${id}`);
       fbId = await publishToFacebook(token, urlsForFb, post.caption);
@@ -128,6 +144,7 @@ async function publishOne(postId: string) {
       video_url: post.videoUrl,
       caption: post.caption,
       share_to_feed: "true",
+      ...(post.coverAssetId ? { cover_url: `${getBaseUrl()}/api/media/${post.coverAssetId}` } : {}),
     });
     creationId = container.id;
     // Videos take a while for Instagram to process: up to about 5 minutes.

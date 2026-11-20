@@ -461,6 +461,7 @@ model ScheduledPost {
   externalPostIds    Json?
   mediaKind          String    @default("IMAGE")
   videoUrl           String?
+  coverAssetId       String?
   facebookPostId     String?
   scheduledAt        DateTime
   status             String    @default("SCHEDULED")

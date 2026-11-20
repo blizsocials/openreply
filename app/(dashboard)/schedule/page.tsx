@@ -1,4 +1,6 @@
 "use client";
+import FeedPlanner from "@/components/feed-planner";
+import ContentCalendar from "@/components/content-calendar";
 import { PlatformIcon, PLATFORM_ORDER, PLATFORMS } from "@/components/platform-icon";
 
 /**
@@ -23,6 +25,7 @@ type Post = {
   platforms?: string[];
   socialConnectionIds?: string[];
   facebookPostId?: string | null;
+  coverAssetId?: string | null;
   status: string;
   permalink: string | null;
   errorMessage: string | null;
@@ -92,6 +95,7 @@ export default function SchedulePage() {
   const [sizeId, setSizeId] = useState<SizeId>("portrait");
   const [video, setVideo] = useState<{ url: string; preview: string } | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
+  const [cover, setCover] = useState<{ id: string; preview: string } | null>(null);
   const [channels, setChannels] = useState<Array<{ id: string; name: string; platform: string; clientName: string; instagramAccountId: string | null }>>([]);
   const [chosenChannels, setChosenChannels] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -181,6 +185,23 @@ export default function SchedulePage() {
     }
   }
 
+  async function onCover(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const jpeg = await toJpeg(file, "story");
+      const res = await fetch("/api/media", { method: "POST", headers: { "Content-Type": "image/jpeg" }, body: jpeg });
+      const payload = await res.json();
+      if (!payload.success) throw new Error(payload.error ?? "Upload failed");
+      setCover({ id: payload.data.id, preview: URL.createObjectURL(jpeg) });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Cover upload failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function schedule(now: boolean) {
     setError(null);
     setNotice(null);
@@ -203,6 +224,7 @@ export default function SchedulePage() {
           mediaAssetIds: kind === "IMAGE" ? uploads.map((u) => u.id) : [],
           mediaKind: kind,
           videoUrl: kind === "REEL" ? video?.url : null,
+          coverAssetId: kind === "REEL" ? cover?.id ?? null : null,
           scheduledAt: at.toISOString(),
           platforms,
           socialConnectionIds,
@@ -213,6 +235,7 @@ export default function SchedulePage() {
       setNotice(now ? "Publishing within a minute." : `Scheduled for ${at.toLocaleString()}.`);
       setUploads([]);
       setVideo(null);
+      setCover(null);
       setChosenChannels([]);
       setCaption("");
       loadPosts();
@@ -238,7 +261,7 @@ export default function SchedulePage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Schedule posts</h1>
-          <p className="text-sm text-muted">Plan feed posts and carousels for any client. They publish automatically at the time you choose.</p>
+          <p className="text-sm text-muted">Plan posts, carousels and Reels for any client. They publish automatically at the time you choose.</p>
         </div>
       </div>
 
@@ -255,43 +278,28 @@ export default function SchedulePage() {
 
           <fieldset className="flex flex-col gap-2">
             <legend className="text-sm font-semibold mb-2">Post to</legend>
-            <div className="flex flex-wrap gap-3">
-              <label className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold cursor-pointer">
-                <input type="checkbox" checked={toInstagram} onChange={(e) => setToInstagram(e.target.checked)} className="h-5 w-5" />
-                <PlatformIcon id="instagram" />
-                Instagram
-              </label>
-              <label className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold cursor-pointer">
-                <input type="checkbox" checked={toFacebook} onChange={(e) => setToFacebook(e.target.checked)} className="h-5 w-5" />
-                <PlatformIcon id="facebook" />
-                Facebook Page
-              </label>
-              {kind === "REEL" &&
-                channels
-                  .filter((c) => !c.instagramAccountId || c.instagramAccountId === accountId)
-                  .map((c) => (
-                    <label key={c.id} className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={chosenChannels.includes(c.id)}
-                        onChange={(e) => setChosenChannels((list) => (e.target.checked ? [...list, c.id] : list.filter((x) => x !== c.id)))}
-                        className="h-5 w-5"
-                      />
-                      <PlatformIcon id="youtube" />
-                      {c.name}
-                    </label>
-                  ))}
-            </div>
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <IconToggle id="instagram" title="Instagram" on={toInstagram} onClick={() => setToInstagram((v) => !v)} />
+              <IconToggle id="facebook" title="Facebook Page" on={toFacebook} onClick={() => setToFacebook((v) => !v)} />
+              {channels
+                .filter((c) => !c.instagramAccountId || c.instagramAccountId === accountId)
+                .map((c) => (
+                  <IconToggle
+                    key={c.id}
+                    id="youtube"
+                    title={kind === "REEL" ? `YouTube: ${c.name}` : "YouTube needs a video"}
+                    disabled={kind !== "REEL"}
+                    on={kind === "REEL" && chosenChannels.includes(c.id)}
+                    onClick={() => setChosenChannels((list) => (list.includes(c.id) ? list.filter((x) => x !== c.id) : [...list, c.id]))}
+                  />
+                ))}
+              <span className="mx-1 h-8 w-px bg-border" aria-hidden />
               {PLATFORM_ORDER.filter((id) => !PLATFORMS[id].live).map((id) => (
-                <span key={id} className="flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-xs font-semibold opacity-60">
-                  <PlatformIcon id={id} size={16} />
-                  {PLATFORMS[id].name}
-                  <span className="rounded-full bg-[#FFF6BF] px-2 py-0.5 text-[10px] text-[#6B5A00]">Coming soon</span>
+                <span key={id} title={`${PLATFORMS[id].name}: coming soon`} className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-border opacity-35 grayscale">
+                  <PlatformIcon id={id} size={22} />
                 </span>
               ))}
             </div>
-            {kind === "IMAGE" && channels.length > 0 && <p className="text-xs text-muted">YouTube appears here when you choose Reel or video.</p>}
           </fieldset>
 
           <div className="flex flex-wrap gap-2" role="group" aria-label="Post type">
@@ -323,6 +331,20 @@ export default function SchedulePage() {
                   <input type="file" accept="video/mp4,video/quicktime" className="sr-only" onChange={(e) => { void onVideo(e.target.files?.[0]); e.target.value = ""; }} />
                 </label>
               )}
+              <span className="text-sm font-semibold pt-2">Cover (optional, cropped to 9:16)</span>
+              {cover ? (
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={cover.preview} alt="Cover" className="h-32 rounded-lg" />
+                  <button type="button" onClick={() => setCover(null)} className="text-sm font-semibold underline">Remove</button>
+                </div>
+              ) : (
+                <label className="w-fit rounded-xl border-2 border-dashed border-border px-4 py-3 text-sm text-muted cursor-pointer">
+                  Upload a cover image
+                  <input type="file" accept="image/*" className="sr-only" onChange={(e) => { void onCover(e.target.files?.[0]); e.target.value = ""; }} />
+                </label>
+              )}
+              <span className="text-xs text-muted">Used on Instagram and Facebook. YouTube uses it once the channel is phone verified.</span>
             </div>
           )}
 
@@ -402,7 +424,10 @@ export default function SchedulePage() {
                 <span className="text-sm font-semibold">{account?.username ?? "account"}</span>
               </div>
               <div className="aspect-square bg-[#F0EEE6] flex items-center justify-center">
-                {kind === "REEL" && video ? (
+                {kind === "REEL" && cover ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={cover.preview} alt="Cover preview" className="h-full w-full object-cover" />
+                ) : kind === "REEL" && video ? (
                   <video src={video.preview} className="h-full w-full object-cover" muted autoPlay loop playsInline />
                 ) : uploads[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -419,6 +444,10 @@ export default function SchedulePage() {
           </div>
         </aside>
       </div>
+
+      <ContentCalendar posts={posts} usernameOf={usernameOf} onlyAccount={accountId} />
+
+      <FeedPlanner accountId={accountId} posts={posts} onMoved={loadPosts} />
 
       <section className="panel p-5 flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Upcoming</h2>
@@ -439,6 +468,23 @@ export default function SchedulePage() {
   );
 }
 
+function IconToggle({ id, title, on, onClick, disabled }: { id: "instagram" | "facebook" | "youtube"; title: string; on: boolean; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      aria-pressed={on}
+      disabled={disabled}
+      onClick={onClick}
+      className={`relative flex h-12 w-12 items-center justify-center rounded-xl border-2 transition ${on ? "border-[#0E0E0E] bg-[#FFF6BF]" : "border-border bg-surface opacity-50 grayscale"} disabled:cursor-not-allowed`}
+    >
+      <PlatformIcon id={id} size={24} />
+      {on && <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0E0E0E] text-[10px] font-bold text-[#FFD701]">✓</span>}
+    </button>
+  );
+}
+
 function PostRow({ post, username, onCancel }: { post: Post; username?: string; onCancel?: () => void }) {
   const s = STATUS_STYLE[post.status] ?? STATUS_STYLE.SCHEDULED;
   return (
@@ -450,7 +496,11 @@ function PostRow({ post, username, onCancel }: { post: Post; username?: string; 
         <span className="h-14 w-14 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: BLACK, color: YELLOW }}>Reel</span>
       )}
       <div className="flex flex-col min-w-0" style={{ flex: "1 1 220px" }}>
-        <span className="text-sm font-semibold">@{username ?? "account"} · {new Date(post.scheduledAt).toLocaleString()} · {[...(post.platforms ?? []).map((p) => (p === "facebook" ? "Facebook" : "Instagram")), ...((post.socialConnectionIds?.length ?? 0) ? ["YouTube"] : [])].join(" + ")}</span>
+        <span className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
+          @{username ?? "account"} · {new Date(post.scheduledAt).toLocaleString()}
+          {(post.platforms ?? []).map((p) => <PlatformIcon key={p} id={p === "facebook" ? "facebook" : "instagram"} size={16} />)}
+          {(post.socialConnectionIds?.length ?? 0) > 0 && <PlatformIcon id="youtube" size={16} />}
+        </span>
         <span className="text-sm text-muted truncate">{post.caption || "No caption"}{post.mediaAssetIds.length > 1 ? ` · carousel of ${post.mediaAssetIds.length}` : ""}</span>
         {post.errorMessage && <span className="text-xs" style={{ color: "#B42318" }}>{post.errorMessage}</span>}
       </div>
