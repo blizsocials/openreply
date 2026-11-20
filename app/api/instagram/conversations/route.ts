@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
         ? err.message
         : "Failed to load conversations";
     return NextResponse.json(
-      { success: false, error: message },
+      { success: false, error: message, detail: err instanceof Error ? err.message : String(err) },
       { status: 500 }
     );
   }
