@@ -12,6 +12,8 @@ import type { Locale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useEffect, useState } from "react";
 import AccountSelect from "@/components/account-select";
+import DateRangePicker from "@/components/date-range-picker";
+import AllClientsTotals from "@/components/all-clients-totals";
 import StatCard from "@/components/stat-card";
 import FollowerChart from "@/components/follower-chart";
 import PostPerformanceCharts from "@/components/post-performance-charts";
@@ -50,6 +52,21 @@ export default function OverviewPage() {
   const [customFrom, setCustomFrom] = useState(() => new Date(Date.now() - 6 * 86_400_000).toISOString().slice(0, 10));
   const [customTo, setCustomTo] = useState(() => new Date().toISOString().slice(0, 10));
 
+  const rangeQuery = (() => {
+    const q = new URLSearchParams();
+    if (count === "7d" || count === "30d") {
+      const days = count === "7d" ? 7 : 30;
+      q.set("since", new Date(Date.parse(`${today}T12:00:00Z`) - (days - 1) * 86_400_000).toISOString().slice(0, 10));
+      q.set("until", today);
+    } else if (count === "custom") {
+      q.set("since", customFrom);
+      q.set("until", customTo);
+    } else {
+      q.set("count", count);
+    }
+    return q.toString();
+  })();
+
   useEffect(() => {
     const params = new URLSearchParams();
     if (selectedAccountId !== "all") {
@@ -86,11 +103,15 @@ export default function OverviewPage() {
   }
 
   function handleCountChange(next: string) {
+    if (next === "custom") {
+      setCount(next);
+      return;
+    }
     setLoading(true);
     setCount(next);
   }
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
         {[...Array(6)].map((_, i) => (
@@ -126,6 +147,7 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-8">
+      {accounts.length > 1 && <AllClientsTotals accounts={accounts} rangeQuery={rangeQuery} />}
       {data.limitations?.map(note => <p key={note} className="text-sm text-muted">{note}</p>)}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
@@ -162,17 +184,17 @@ export default function OverviewPage() {
             </select>
           </label>
           {count === "custom" && (
-            <>
-              <label className="flex flex-col gap-2 text-sm">
-                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">From</span>
-                <input type="date" value={customFrom} max={customTo} onChange={(e) => setCustomFrom(e.target.value)} className="rounded-xl border border-border bg-surface px-3 py-2 text-sm" />
-              </label>
-              <label className="flex flex-col gap-2 text-sm">
-                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500">To</span>
-                <input type="date" value={customTo} min={customFrom} max={today} onChange={(e) => setCustomTo(e.target.value)} className="rounded-xl border border-border bg-surface px-3 py-2 text-sm" />
-              </label>
-            </>
+            <DateRangePicker
+              from={customFrom}
+              to={customTo}
+              onApply={(f, t2) => {
+                setLoading(true);
+                setCustomFrom(f);
+                setCustomTo(t2);
+              }}
+            />
           )}
+          {loading && <span className="text-xs text-muted">Updating…</span>}
           {accounts.length > 1 && (
             <AccountSelect
               accounts={accounts.map((a) => ({
