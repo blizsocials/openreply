@@ -10,11 +10,15 @@ import type { StaticMessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePathname } from "next/navigation";
 
-const pageTitles: Record<string, StaticMessageKey> = {
-  "/dashboard": "Dashboard",
+const plainTitles: Record<string, string> = {
   "/overview": "Metrics",
   "/clients": "Clients",
   "/schedule": "Schedule",
+};
+
+const pageTitles: Record<string, StaticMessageKey> = {
+  "/dashboard": "Dashboard",
+  "/overview": "Overview",
   "/inbox": "Inbox",
   "/campaigns/import": "Import campaigns",
   "/campaigns": "Campaigns",
@@ -63,7 +67,7 @@ export default function TopBar({
         >
           {t("Menu")}
         </button>
-        <h1 className="truncate text-base font-semibold sm:text-lg">{t(title)}</h1>
+        <h1 className="truncate text-base font-semibold sm:text-lg">{plainTitles[pathname] ?? t(title)}</h1>
       </div>
 
       {instagramAccountCount > 0 ? (
