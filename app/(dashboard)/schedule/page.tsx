@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { upload as blobUpload } from "@vercel/blob/client";
+import { onClientChange, readClient, writeClient } from "@/lib/client-selection";
 
 type Account = { id: string; username: string; name?: string | null };
 type Upload = { id: string; url: string; preview: string };
@@ -100,10 +101,14 @@ export default function SchedulePage() {
       .then((p) => {
         const list: Account[] = p?.data?.instagramAccounts ?? [];
         setAccounts(list);
-        if (list[0]) setAccountId((cur) => cur || list[0].id);
+        const saved = readClient();
+        const pick = saved && list.some((a) => a.id === saved) ? saved : list[0]?.id;
+        if (pick) setAccountId((cur) => cur || pick);
       })
       .catch(() => setError("Could not load your accounts"));
   }, []);
+
+  useEffect(() => onClientChange((id) => { if (id !== "all") setAccountId(id); }), []);
 
   const loadPosts = useCallback(() => {
     fetch("/api/scheduled-posts")
@@ -227,7 +232,7 @@ export default function SchedulePage() {
         <section className="panel p-5 flex flex-col gap-4" style={{ flex: "999 1 420px", minWidth: 0 }}>
           <label className="flex flex-col gap-2 text-sm font-semibold">
             Client account
-            <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={field}>
+            <select value={accountId} onChange={(e) => { setAccountId(e.target.value); writeClient(e.target.value); }} className={field}>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>@{a.username}</option>
               ))}

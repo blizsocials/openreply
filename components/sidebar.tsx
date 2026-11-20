@@ -9,10 +9,12 @@
 import LanguageSwitcher from "@/components/language-switcher";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { onClientChange, readClient, writeClient } from "@/lib/client-selection";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard" },
-  { label: "Clients", href: "/overview" },
+  { label: "Metrics", href: "/overview" },
   { label: "Automations", href: "/campaigns" },
   { label: "Schedule", href: "/schedule" },
   { label: "Inbox", href: "/inbox" },
@@ -33,6 +35,18 @@ export default function Sidebar({
   workspaceName,
 }: SidebarProps) {
   const pathname = usePathname();
+  const [clients, setClients] = useState<Array<{ id: string; username: string }>>([]);
+  const [client, setClient] = useState("all");
+
+  useEffect(() => {
+    fetch("/api/instagram/accounts")
+      .then((r) => r.json())
+      .then((p) => setClients(p?.data?.instagramAccounts ?? []))
+      .catch(() => {});
+    const saved = readClient();
+    if (saved) void Promise.resolve().then(() => setClient(saved));
+    return onClientChange(setClient);
+  }, []);
 
   return (
     <>
@@ -71,6 +85,27 @@ export default function Sidebar({
               <span className="text-xs" style={{ color: "#B8B8B8" }}>Automations</span>
             </span>
           </Link>
+        </div>
+
+        <div className="px-4 pb-2">
+          <label htmlFor="client-switch" className="block text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "#B8B8B8" }}>
+            Working on
+          </label>
+          <select
+            id="client-switch"
+            value={client}
+            onChange={(e) => {
+              setClient(e.target.value);
+              writeClient(e.target.value);
+            }}
+            className="w-full rounded-lg px-3 py-3 text-sm text-white outline-none"
+            style={{ background: "#1C1C1C", border: "1px solid #333333" }}
+          >
+            <option value="all">All clients</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>@{c.username}</option>
+            ))}
+          </select>
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">

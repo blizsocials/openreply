@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import AccountSelect from "@/components/account-select";
 import StatCard from "@/components/stat-card";
 import FollowerChart from "@/components/follower-chart";
+import PostPerformanceCharts from "@/components/post-performance-charts";
 import type { OverviewResponse } from "@/app/api/instagram/overview/route";
 
 function formatNumber(n: number | null, locale: Locale): string {
@@ -188,6 +189,9 @@ export default function OverviewPage() {
 
       {/* Follower trend — account-level, independent of the post range */}
       <FollowerChart data={followerHistory} followers={followers} />
+
+      {/* Blizsocials: performance charts */}
+      <PostPerformanceCharts posts={posts} />
 
       {/* Per-post table */}
       <div className="panel rounded p-4 sm:p-6">
