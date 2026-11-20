@@ -456,6 +456,8 @@ model ScheduledPost {
   instagramAccountId String
   caption            String    @default("")
   mediaAssetIds      String[]
+  platforms          String[]  @default(["instagram"])
+  facebookPostId     String?
   scheduledAt        DateTime
   status             String    @default("SCHEDULED")
   attempts           Int       @default(0)

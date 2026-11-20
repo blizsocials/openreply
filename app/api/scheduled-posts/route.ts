@@ -22,6 +22,7 @@ const createSchema = z.object({
   caption: z.string().max(2200).default(""),
   mediaAssetIds: z.array(z.string().min(1)).min(1).max(10),
   scheduledAt: z.string().datetime(),
+  platforms: z.array(z.enum(["instagram", "facebook"])).min(1).default(["instagram"]),
 });
 
 export async function POST(request: NextRequest) {
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
       instagramAccountId: account.id,
       caption: input.caption,
       mediaAssetIds: input.mediaAssetIds,
+      platforms: input.platforms,
       scheduledAt: new Date(input.scheduledAt),
     },
   });

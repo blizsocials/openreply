@@ -16,6 +16,8 @@ type Post = {
   caption: string;
   mediaAssetIds: string[];
   scheduledAt: string;
+  platforms?: string[];
+  facebookPostId?: string | null;
   status: string;
   permalink: string | null;
   errorMessage: string | null;
@@ -61,6 +63,8 @@ export default function SchedulePage() {
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [caption, setCaption] = useState("");
   const [when, setWhen] = useState(defaultTime);
+  const [toInstagram, setToInstagram] = useState(true);
+  const [toFacebook, setToFacebook] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -120,6 +124,8 @@ export default function SchedulePage() {
     setNotice(null);
     if (!accountId) return setError("Choose a client account");
     if (!uploads.length) return setError("Add at least one image");
+    const platforms = [toInstagram ? "instagram" : null, toFacebook ? "facebook" : null].filter(Boolean);
+    if (!platforms.length) return setError("Choose Instagram, Facebook or both");
     const at = now ? new Date() : new Date(when);
     if (!now && at.getTime() < Date.now() - 60_000) return setError("Pick a time in the future");
     setBusy(true);
@@ -132,6 +138,7 @@ export default function SchedulePage() {
           caption,
           mediaAssetIds: uploads.map((u) => u.id),
           scheduledAt: at.toISOString(),
+          platforms,
         }),
       });
       const payload = await res.json();
@@ -176,6 +183,20 @@ export default function SchedulePage() {
               ))}
             </select>
           </label>
+
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-semibold mb-2">Post to</legend>
+            <div className="flex flex-wrap gap-3">
+              <label className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold cursor-pointer">
+                <input type="checkbox" checked={toInstagram} onChange={(e) => setToInstagram(e.target.checked)} className="h-5 w-5" />
+                Instagram
+              </label>
+              <label className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold cursor-pointer">
+                <input type="checkbox" checked={toFacebook} onChange={(e) => setToFacebook(e.target.checked)} className="h-5 w-5" />
+                Facebook Page
+              </label>
+            </div>
+          </fieldset>
 
           <div className="flex flex-col gap-2">
             <span className="text-sm font-semibold">Images (1 for a post, 2 to 10 for a carousel)</span>
@@ -281,7 +302,7 @@ function PostRow({ post, username, onCancel }: { post: Post; username?: string; 
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={`/api/media/${post.mediaAssetIds[0]}`} alt="" className="h-14 w-14 rounded-lg object-cover" />
       <div className="flex flex-col min-w-0" style={{ flex: "1 1 220px" }}>
-        <span className="text-sm font-semibold">@{username ?? "account"} · {new Date(post.scheduledAt).toLocaleString()}</span>
+        <span className="text-sm font-semibold">@{username ?? "account"} · {new Date(post.scheduledAt).toLocaleString()} · {(post.platforms?.length ? post.platforms : ["instagram"]).map((p) => (p === "facebook" ? "Facebook" : "Instagram")).join(" + ")}</span>
         <span className="text-sm text-muted truncate">{post.caption || "No caption"}{post.mediaAssetIds.length > 1 ? ` · carousel of ${post.mediaAssetIds.length}` : ""}</span>
         {post.errorMessage && <span className="text-xs" style={{ color: "#B42318" }}>{post.errorMessage}</span>}
       </div>

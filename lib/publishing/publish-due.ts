@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/client";
 import { getBaseUrl, getMetaGraphApiVersion } from "@/lib/env";
 import { decryptToken } from "@/lib/meta/oauth";
-import { metaFetch } from "@/lib/meta/facebook-login";
+import { decodeFacebookLoginToken, metaFetch } from "@/lib/meta/facebook-login";
 
 /**
  * Blizsocials scheduler: publishes posts whose time has come.
@@ -42,6 +42,36 @@ async function waitUntilReady(containerId: string, token: string) {
   throw new Error("Instagram took too long to process the media");
 }
 
+async function fbGraph<T>(path: string, token: string, params: Record<string, string>): Promise<T> {
+  const url = new URL(`https://graph.facebook.com/${getMetaGraphApiVersion()}/${path}`);
+  const body = new URLSearchParams({ ...params, access_token: token });
+  const response = await fetch(url.toString(), { method: "POST", body });
+  const data = (await response.json().catch(() => ({}))) as { error?: { message?: string; code?: number } } & T;
+  if (!response.ok || data.error) {
+    throw new Error(`Facebook ${data.error?.code ?? response.status}: ${data.error?.message ?? "request failed"}`);
+  }
+  return data;
+}
+
+/** Posts the images and caption to the client's Facebook Page. */
+async function publishToFacebook(accessToken: string, urls: string[], caption: string): Promise<string> {
+  const fb = decodeFacebookLoginToken(accessToken);
+  if (!fb) throw new Error("Facebook posting needs the account connected with Continue with Facebook");
+  if (urls.length === 1) {
+    const res = await fbGraph<{ id: string; post_id?: string }>(`${fb.page}/photos`, fb.t, { url: urls[0], caption });
+    return res.post_id ?? res.id;
+  }
+  const ids: string[] = [];
+  for (const url of urls) {
+    const photo = await fbGraph<{ id: string }>(`${fb.page}/photos`, fb.t, { url, published: "false" });
+    ids.push(photo.id);
+  }
+  const params: Record<string, string> = { message: caption };
+  ids.forEach((id, i) => (params[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id })));
+  const res = await fbGraph<{ id: string }>(`${fb.page}/feed`, fb.t, params);
+  return res.id;
+}
+
 async function publishOne(postId: string) {
   const post = await prisma.scheduledPost.findUnique({ where: { id: postId } });
   if (!post) return;
@@ -49,6 +79,22 @@ async function publishOne(postId: string) {
   if (!account) throw new Error("Instagram account is no longer connected");
 
   const token = decryptToken(account.accessToken);
+  const platforms = post.platforms?.length ? post.platforms : ["instagram"];
+
+  // Facebook first is not required; each platform is skipped once done so a
+  // retry never posts twice.
+  if (platforms.includes("facebook") && !post.facebookPostId) {
+    const urlsForFb = post.mediaAssetIds.map((id: string) => `${getBaseUrl()}/api/media/${id}`);
+    const fbId = await publishToFacebook(token, urlsForFb, post.caption);
+    await prisma.scheduledPost.update({ where: { id: post.id }, data: { facebookPostId: fbId } });
+  }
+  if (!platforms.includes("instagram") || post.publishedMediaId) {
+    await prisma.scheduledPost.update({
+      where: { id: post.id },
+      data: { status: "PUBLISHED", publishedAt: new Date(), errorMessage: null },
+    });
+    return;
+  }
   const ig = account.instagramId;
   const urls = post.mediaAssetIds.map((id: string) => `${getBaseUrl()}/api/media/${id}`);
 
