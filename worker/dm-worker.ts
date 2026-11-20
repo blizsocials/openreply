@@ -3,6 +3,7 @@ import { recordWorkerHeartbeat } from "@/lib/ops/worker-health";
 import { reconcileComments } from "@/lib/polling/comment-reconciler";
 import { attachPendingNextReels } from "@/lib/automation/attach-next-reel";
 import os from "node:os";
+import { publishDuePosts } from "@/lib/publishing/publish-due";
 
 const worker = createDMWorker();
 const startedAt = new Date().toISOString();
@@ -44,6 +45,23 @@ async function poll() {
   }
 }
 
+// Blizsocials: publish scheduled posts every minute.
+let publishing = false;
+async function publishTick() {
+  if (publishing) return;
+  publishing = true;
+  try {
+    const result = await publishDuePosts();
+    if (result.published || result.failed) console.log("[Scheduler]", result);
+  } catch (error) {
+    console.error("[Scheduler] failed:", error instanceof Error ? error.message : error);
+  } finally {
+    publishing = false;
+  }
+}
+const publishTimer = setInterval(() => void publishTick(), 60_000);
+setTimeout(() => void publishTick(), 15_000);
+
 // Kick off one sweep shortly after boot, then on a fixed interval.
 setTimeout(() => void poll(), 10_000);
 const pollTimer = setInterval(() => void poll(), POLL_INTERVAL_MS);
@@ -52,6 +70,7 @@ async function shutdown(signal: string) {
   console.log(`[DM Worker] ${signal} received, closing worker`);
   clearInterval(heartbeatTimer);
   clearInterval(pollTimer);
+  clearInterval(publishTimer);
   await worker.close();
   process.exit(0);
 }

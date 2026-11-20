@@ -435,3 +435,37 @@ model PostbackDelivery {
   id String @id
   createdAt DateTime @default(now())
 }
+
+/// Blizsocials: an uploaded image kept so Instagram can fetch it by public URL
+/// when a scheduled post publishes. Images are stored as JPEG.
+model MediaAsset {
+  id          String   @id @default(cuid())
+  workspaceId String
+  mimeType    String
+  size        Int
+  data        Bytes
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId])
+}
+
+/// Blizsocials: a post queued to publish to an Instagram account at a time.
+model ScheduledPost {
+  id                 String    @id @default(cuid())
+  workspaceId        String
+  instagramAccountId String
+  caption            String    @default("")
+  mediaAssetIds      String[]
+  scheduledAt        DateTime
+  status             String    @default("SCHEDULED")
+  attempts           Int       @default(0)
+  publishedMediaId   String?
+  permalink          String?
+  errorMessage       String?
+  publishedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([workspaceId, scheduledAt])
+  @@index([status, scheduledAt])
+}
