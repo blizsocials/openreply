@@ -1,4 +1,5 @@
 "use client";
+import { PlatformIcon, PlatformStrip, PLATFORMS as LOGOS, type PlatformId } from "@/components/platform-icon";
 
 /**
  * Blizsocials: clients and their non-Meta platform connections. Staff create a
@@ -122,6 +123,8 @@ export default function ClientsPage() {
         </p>
       </div>
 
+      <PlatformStrip />
+
       {message && <p role="status" className="panel p-4 text-sm font-semibold">{message}</p>}
 
       <section className="panel p-5 flex flex-col gap-4">
@@ -189,7 +192,8 @@ export default function ClientsPage() {
             <span className="text-sm font-semibold">{client}</span>
             <div className="flex flex-wrap gap-2">
               {list.map((c) => (
-                <span key={c.id} className="rounded-full px-3 py-1 text-xs font-semibold" style={{ background: "#F0EEE6" }}>
+                <span key={c.id} className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold" style={{ background: "#F0EEE6" }}>
+                  {c.platform in LOGOS && <PlatformIcon id={c.platform as PlatformId} size={16} />}
                   {PLATFORM_NAMES[c.platform] ?? c.platform}: {c.name}
                 </span>
               ))}

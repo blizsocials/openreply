@@ -1,4 +1,5 @@
 "use client";
+import { PlatformIcon, PLATFORM_ORDER, PLATFORMS } from "@/components/platform-icon";
 
 /**
  * Blizsocials: schedule Instagram posts for any connected client account.
@@ -257,10 +258,12 @@ export default function SchedulePage() {
             <div className="flex flex-wrap gap-3">
               <label className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold cursor-pointer">
                 <input type="checkbox" checked={toInstagram} onChange={(e) => setToInstagram(e.target.checked)} className="h-5 w-5" />
+                <PlatformIcon id="instagram" />
                 Instagram
               </label>
               <label className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold cursor-pointer">
                 <input type="checkbox" checked={toFacebook} onChange={(e) => setToFacebook(e.target.checked)} className="h-5 w-5" />
+                <PlatformIcon id="facebook" />
                 Facebook Page
               </label>
               {kind === "REEL" &&
@@ -274,9 +277,19 @@ export default function SchedulePage() {
                         onChange={(e) => setChosenChannels((list) => (e.target.checked ? [...list, c.id] : list.filter((x) => x !== c.id)))}
                         className="h-5 w-5"
                       />
-                      YouTube: {c.name}
+                      <PlatformIcon id="youtube" />
+                      {c.name}
                     </label>
                   ))}
+            </div>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {PLATFORM_ORDER.filter((id) => !PLATFORMS[id].live).map((id) => (
+                <span key={id} className="flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-xs font-semibold opacity-60">
+                  <PlatformIcon id={id} size={16} />
+                  {PLATFORMS[id].name}
+                  <span className="rounded-full bg-[#FFF6BF] px-2 py-0.5 text-[10px] text-[#6B5A00]">Coming soon</span>
+                </span>
+              ))}
             </div>
             {kind === "IMAGE" && channels.length > 0 && <p className="text-xs text-muted">YouTube appears here when you choose Reel or video.</p>}
           </fieldset>

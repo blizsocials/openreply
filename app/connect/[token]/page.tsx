@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/client";
+import { PlatformIcon, PLATFORMS as LOGOS, type PlatformId } from "@/components/platform-icon";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Connect your accounts · Blizsocials", robots: { index: false } };
@@ -11,6 +12,9 @@ const PLATFORMS = [
   { id: "pinterest", name: "Pinterest", note: "Coming soon", ready: false },
   { id: "tiktok", name: "TikTok", note: "Coming soon", ready: false },
   { id: "linkedin", name: "LinkedIn", note: "Coming soon", ready: false },
+  { id: "threads", name: "Threads", note: "Coming soon", ready: false },
+  { id: "snapchat", name: "Snapchat", note: "Coming soon", ready: false },
+  { id: "x", name: "X", note: "Coming soon", ready: false },
 ] as const;
 
 const MESSAGES: Record<string, string> = {
@@ -67,10 +71,11 @@ export default async function ConnectPage({
               const done = connections.filter((c) => c.platform === p.id);
               return (
                 <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 14, border: "1px solid #E2E0D8", borderRadius: 14, padding: "14px 16px", flexWrap: "wrap" }}>
+                  {p.id in LOGOS && <PlatformIcon id={p.id as PlatformId} size={28} />}
                   <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 2 }}>
                     <span style={{ fontWeight: 700 }}>{p.name}</span>
                     <span style={{ fontSize: 13, color: "#5A5A5A" }}>
-                      {done.length ? `Connected: ${done.map((d) => d.name).join(", ")}` : p.note}
+                      {done.length ? `Connected: ${done.map((d) => d.name).join(", ")}` : p.ready ? p.note : "We are getting this ready for you."}
                     </span>
                   </div>
                   {p.ready ? (
@@ -81,7 +86,7 @@ export default async function ConnectPage({
                       {done.length ? "Connect another" : "Connect"}
                     </a>
                   ) : (
-                    <span style={{ fontSize: 13, color: "#5A5A5A" }}>Soon</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#6B5A00", background: "#FFF6BF", borderRadius: 999, padding: "6px 12px" }}>Coming soon</span>
                   )}
                 </div>
               );
