@@ -220,7 +220,14 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-border flex gap-3">
+        <div className="mt-6 pt-4 border-t border-border flex flex-wrap gap-3">
+          <a
+            href="/api/facebook/connect"
+            className="px-4 py-2 rounded text-sm font-semibold transition-colors text-white"
+            style={{ background: "#1877F2" }}
+          >
+            Continue with Facebook (all clients)
+          </a>
           <a
             href="/api/instagram/connect"
             className="px-4 py-2 rounded text-sm font-medium transition-colors bg-accent text-white hover:bg-accent-hover"

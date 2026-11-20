@@ -1,4 +1,5 @@
 import { getMetaGraphApiVersion, requireEnv } from "@/lib/env";
+import { metaFetch } from "@/lib/meta/facebook-login";
 
 function instagramGraphBase() {
   return `https://graph.instagram.com/${getMetaGraphApiVersion()}`;
@@ -167,7 +168,7 @@ export async function sendPrivateReply(
   commentId: string,
   message: string
 ): Promise<{ recipient_id: string; message_id: string }> {
-  const response = await fetch(
+  const response = await metaFetch(
     `${instagramGraphBase()}/${instagramAccountId}/messages`,
     {
       method: "POST",
@@ -199,7 +200,7 @@ export async function sendPrivateReplyWithButton(
   buttonTitle: string,
   payload: string
 ): Promise<{ recipient_id: string; message_id: string }> {
-  const response = await fetch(
+  const response = await metaFetch(
     `${instagramGraphBase()}/${instagramAccountId}/messages`,
     {
       method: "POST",
@@ -242,7 +243,7 @@ export async function sendDirectMessageWithButton(
   buttonTitle: string,
   payload: string
 ): Promise<{ recipient_id: string; message_id: string }> {
-  const response = await fetch(
+  const response = await metaFetch(
     `${instagramGraphBase()}/${instagramAccountId}/messages`,
     {
       method: "POST",
@@ -286,7 +287,7 @@ export async function getUserFollowStatus(
   url.searchParams.set("fields", "is_user_follow_business");
 
   try {
-    const response = await fetch(url.toString(), {
+    const response = await metaFetch(url.toString(), {
       method: "GET",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -317,7 +318,7 @@ export async function getUserUsername(
   url.searchParams.set("fields", "username");
 
   try {
-    const response = await fetch(url.toString(), {
+    const response = await metaFetch(url.toString(), {
       method: "GET",
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -358,7 +359,7 @@ export async function sendPrivateReplyWithLinkButton(
   text: string,
   buttons: LinkButton[]
 ): Promise<{ recipient_id: string; message_id: string }> {
-  const response = await fetch(
+  const response = await metaFetch(
     `${instagramGraphBase()}/${instagramAccountId}/messages`,
     {
       method: "POST",
@@ -395,7 +396,7 @@ export async function sendDirectMessage(
   userId: string,
   message: string
 ): Promise<{ recipient_id: string; message_id: string }> {
-  const response = await fetch(
+  const response = await metaFetch(
     `${instagramGraphBase()}/${instagramAccountId}/messages`,
     {
       method: "POST",
@@ -424,7 +425,7 @@ export async function sendDirectMessageWithLinkButton(
   text: string,
   buttons: LinkButton[]
 ): Promise<{ recipient_id: string; message_id: string }> {
-  const response = await fetch(
+  const response = await metaFetch(
     `${instagramGraphBase()}/${instagramAccountId}/messages`,
     {
       method: "POST",
@@ -456,7 +457,7 @@ export async function sendCommentReply(
   commentId: string,
   message: string
 ): Promise<{ id: string }> {
-  const response = await fetch(
+  const response = await metaFetch(
     `${instagramGraphBase()}/${commentId}/replies`,
     {
       method: "POST",
@@ -479,7 +480,7 @@ export async function getMediaComments(
   url.searchParams.set("fields", "id,text,from,timestamp");
   url.searchParams.set("access_token", accessToken);
 
-  const response = await fetch(url.toString());
+  const response = await metaFetch(url.toString());
   const data = await handleResponse<{ data: InstagramComment[] }>(response);
   return data.data;
 }
@@ -512,7 +513,7 @@ export async function getRecentMediaComments(
   let nextUrl: string | null = first.toString();
 
   while (nextUrl !== null && results.length < max) {
-    const response: Response = await fetch(nextUrl);
+    const response: Response = await metaFetch(nextUrl);
     const page = await handleResponse<{
       data: InstagramComment[];
       paging?: { next?: string };
@@ -589,7 +590,7 @@ export async function getConversations(
     url.searchParams.set("limit", String(limit));
     if (after) url.searchParams.set("after", after);
     return handleResponse<Page>(
-      await fetch(url.toString(), {
+      await metaFetch(url.toString(), {
         headers: { Authorization: `Bearer ${accessToken}` },
         signal: AbortSignal.timeout(10_000),
       })
@@ -657,7 +658,7 @@ export async function getConversationMessages(
   url.searchParams.set("fields", "messages{id,created_time,from,to,message}");
   url.searchParams.set("access_token", accessToken);
 
-  const response = await fetch(url.toString());
+  const response = await metaFetch(url.toString());
   const data = await handleResponse<{ messages?: { data: InstagramMessage[] } }>(
     response
   );
@@ -672,7 +673,7 @@ export async function getUserInfo(accessToken: string): Promise<InstagramUser> {
   );
   url.searchParams.set("access_token", accessToken);
 
-  const response = await fetch(url.toString());
+  const response = await metaFetch(url.toString());
   return handleResponse<InstagramUser>(response);
 }
 
@@ -691,7 +692,7 @@ export async function getUserMedia(
   url.searchParams.set("limit", limit.toString());
   url.searchParams.set("access_token", accessToken);
 
-  const response = await fetch(url.toString());
+  const response = await metaFetch(url.toString());
   const data = await handleResponse<{ data: InstagramMedia[] }>(response);
   return data.data;
 }
@@ -716,7 +717,7 @@ export async function getAllUserMedia(
   let nextUrl: string | null = first.toString();
 
   while (nextUrl !== null && results.length < max) {
-    const response: Response = await fetch(nextUrl);
+    const response: Response = await metaFetch(nextUrl);
     const page = await handleResponse<{
       data: InstagramMedia[];
       paging?: { next?: string };
@@ -745,7 +746,7 @@ export async function getMediaInsights(
   url.searchParams.set("metric", metrics.join(","));
   url.searchParams.set("access_token", accessToken);
 
-  const response = await fetch(url.toString());
+  const response = await metaFetch(url.toString());
   const data = await handleResponse<{
     data: Array<{ name: string; values: Array<{ value: number }> }>;
   }>(response);
@@ -799,7 +800,7 @@ export async function getFollowerCountSeries(
   url.searchParams.set("access_token", accessToken);
 
   try {
-    const response = await fetch(url.toString());
+    const response = await metaFetch(url.toString());
     const data = await handleResponse<{
       data: Array<{
         name: string;
@@ -835,7 +836,7 @@ export async function getLongLivedToken(
   url.searchParams.set("client_secret", requireEnv("INSTAGRAM_APP_SECRET"));
   url.searchParams.set("access_token", shortLivedToken);
 
-  const response = await fetch(url.toString());
+  const response = await metaFetch(url.toString());
   const data = await handleResponse<TokenResponse>(response);
 
   return {
@@ -851,7 +852,7 @@ export async function refreshLongLivedToken(
   url.searchParams.set("grant_type", "ig_refresh_token");
   url.searchParams.set("access_token", longLivedToken);
 
-  const response = await fetch(url.toString());
+  const response = await metaFetch(url.toString());
   const data = await handleResponse<TokenResponse>(response);
 
   return {
@@ -864,7 +865,7 @@ export async function subscribeInstagramAccountToWebhooks(
   instagramAccountId: string,
   accessToken: string
 ): Promise<{ success: boolean }> {
-  const response = await fetch(
+  const response = await metaFetch(
     `${instagramGraphBase()}/${instagramAccountId}/subscribed_apps`,
     {
       method: "POST",
@@ -885,6 +886,6 @@ export async function debugToken(inputToken: string, accessToken: string) {
   const url = new URL(`${facebookGraphBase()}/debug_token`);
   url.searchParams.set("input_token", inputToken);
   url.searchParams.set("access_token", accessToken);
-  const response = await fetch(url.toString());
+  const response = await metaFetch(url.toString());
   return handleResponse(response);
 }

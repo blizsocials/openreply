@@ -7,20 +7,16 @@
  */
 
 import LanguageSwitcher from "@/components/language-switcher";
-import { useI18n } from "@/lib/i18n/provider";
 import Link from "next/link";
-import Image from "next/image";
-import { zernioLink } from "@/lib/zernio-links";
 import { usePathname } from "next/navigation";
 
 const navItems = [
   { label: "Dashboard", href: "/dashboard" },
-  { label: "Overview", href: "/overview" },
+  { label: "Clients", href: "/overview" },
+  { label: "Automations", href: "/campaigns" },
   { label: "Inbox", href: "/inbox" },
-  { label: "Campaigns", href: "/campaigns" },
   { label: "DM Logs", href: "/logs" },
   { label: "Settings", href: "/settings" },
-  { label: "API & MCP", href: "/integrations" },
   { label: "Diagnostics", href: "/diagnostics" },
 ] as const;
 
@@ -35,7 +31,6 @@ export default function Sidebar({
   onClose,
   workspaceName,
 }: SidebarProps) {
-  const { t } = useI18n();
   const pathname = usePathname();
 
   return (
@@ -49,8 +44,9 @@ export default function Sidebar({
       )}
 
       <aside
+        style={{ background: "#0E0E0E" }}
         className={`
-          fixed top-0 left-0 z-50 h-dvh w-64 max-w-[85vw] shrink-0 bg-surface border-r border-border flex flex-col
+          fixed top-0 left-0 z-50 h-dvh w-64 max-w-[85vw] shrink-0 flex flex-col text-white
           transition-transform duration-200 ease-out
           lg:h-full lg:translate-x-0 lg:static lg:z-auto
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
@@ -59,11 +55,20 @@ export default function Sidebar({
         {/* Same reason as the top bar: the drawer is full height, so the
             wordmark would otherwise land under the status bar. */}
         <div
-          className="px-6 py-5 border-b border-border"
+          className="px-5 py-5"
           style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
         >
-          <Link href="/dashboard" className="text-base font-semibold">
-            OpenReply
+          <Link href="/dashboard" className="flex items-center gap-3">
+            <span
+              className="flex items-center justify-center rounded-lg text-lg font-bold"
+              style={{ width: 36, height: 36, background: "#FFD701", color: "#0E0E0E", fontFamily: "var(--font-display)" }}
+            >
+              b
+            </span>
+            <span className="flex flex-col leading-tight">
+              <span className="text-base font-semibold" style={{ fontFamily: "var(--font-display)" }}>Blizsocials</span>
+              <span className="text-xs" style={{ color: "#B8B8B8" }}>Automations</span>
+            </span>
           </Link>
         </div>
 
@@ -78,39 +83,33 @@ export default function Sidebar({
                 onClick={onClose}
                 aria-current={isActive ? "page" : undefined}
                 className={`
-                  block px-3 py-2.5 rounded text-sm
+                  block px-3 py-3 rounded-lg text-sm font-semibold
                   ${
                     isActive
-                      ? "bg-surface-hover text-foreground font-medium"
-                      : "text-muted hover:text-foreground hover:bg-surface-hover"
+                      ? "text-[#0E0E0E]"
+                      : "text-white hover:bg-white/10"
                   }
                 `}
+                style={isActive ? { background: "#FFD701" } : undefined}
               >
-                {t(item.label)}
+                {item.label}
               </Link>
             );
           })}
         </nav>
 
-        <div className="px-5 py-4 border-t border-border">
-          <div className="mb-4"><LanguageSwitcher /></div>
-          <p className="text-sm text-foreground truncate">{workspaceName}</p>
-          <p className="text-xs text-muted">{t("Self-hosted")}</p>
-          <a
-            href={zernioLink({ placement: "sidebar" })}
-            target="_blank"
-            rel="sponsored noopener noreferrer"
-            className="mt-4 flex items-center gap-3 text-xs text-muted hover:text-foreground"
-          >
-            <span>{t("Supported by")}</span>
-            <Image
-              src="/brand/zernio-primary.svg"
-              alt="Zernio"
-              width={64}
-              height={20}
-              className="m-2"
-            />
-          </a>
+        <div className="px-4 py-4">
+          <div className="rounded-xl p-4 flex flex-col gap-2" style={{ background: "#1C1C1C" }}>
+            <span className="text-sm font-semibold">Connected through Facebook</span>
+            <span className="text-xs leading-relaxed" style={{ color: "#B8B8B8" }}>
+              Every Instagram account linked to a Page in your Business Manager shows up here.
+            </span>
+            <a href="/api/facebook/connect" className="text-sm font-semibold" style={{ color: "#FFD701" }}>
+              Add or refresh clients
+            </a>
+          </div>
+          <p className="mt-4 text-sm truncate">{workspaceName}</p>
+          <div className="mt-2 hidden"><LanguageSwitcher /></div>
         </div>
       </aside>
     </>
