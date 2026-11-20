@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/client";
 import { getBaseUrl, getMetaGraphApiVersion } from "@/lib/env";
 import { decryptToken } from "@/lib/meta/oauth";
 import { decodeFacebookLoginToken, metaFetch } from "@/lib/meta/facebook-login";
+import { uploadToYoutube } from "@/lib/connect/youtube";
 
 /**
  * Blizsocials scheduler: publishes posts whose time has come.
@@ -79,7 +80,21 @@ async function publishOne(postId: string) {
   if (!account) throw new Error("Instagram account is no longer connected");
 
   const token = decryptToken(account.accessToken);
-  const platforms = post.platforms?.length ? post.platforms : ["instagram"];
+  const platforms: string[] = post.platforms ?? [];
+
+  // Other platforms (YouTube now). Each finished id is recorded so a retry
+  // never uploads twice.
+  const done = { ...((post.externalPostIds as Record<string, string> | null) ?? {}) };
+  for (const connectionId of post.socialConnectionIds ?? []) {
+    if (done[connectionId]) continue;
+    const connection = await prisma.socialConnection.findUnique({ where: { id: connectionId } });
+    if (!connection) throw new Error("A connected account was removed");
+    if (connection.platform === "youtube") {
+      if (!post.videoUrl) throw new Error("YouTube needs a video");
+      done[connectionId] = await uploadToYoutube(connection.id, post.videoUrl, post.caption);
+    }
+    await prisma.scheduledPost.update({ where: { id: post.id }, data: { externalPostIds: done } });
+  }
 
   // Facebook first is not required; each platform is skipped once done so a
   // retry never posts twice.

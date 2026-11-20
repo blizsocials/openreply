@@ -457,6 +457,8 @@ model ScheduledPost {
   caption            String    @default("")
   mediaAssetIds      String[]
   platforms          String[]  @default(["instagram"])
+  socialConnectionIds String[] @default([])
+  externalPostIds    Json?
   mediaKind          String    @default("IMAGE")
   videoUrl           String?
   facebookPostId     String?
@@ -472,4 +474,40 @@ model ScheduledPost {
 
   @@index([workspaceId, scheduledAt])
   @@index([status, scheduledAt])
+}
+
+/// Blizsocials: a client's account on a platform outside Meta (YouTube now;
+/// Pinterest, TikTok and others later), connected by the client through a
+/// connect link or by staff directly.
+model SocialConnection {
+  id                 String    @id @default(cuid())
+  workspaceId        String
+  clientName         String    @default("")
+  instagramAccountId String?
+  platform           String
+  externalId         String
+  name               String    @default("")
+  handle             String?
+  avatarUrl          String?
+  accessToken        String
+  refreshToken       String?
+  expiresAt          DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@unique([workspaceId, platform, externalId])
+  @@index([workspaceId])
+}
+
+/// Blizsocials: a link a client opens to connect their non-Meta accounts.
+model ConnectLink {
+  id                 String   @id @default(cuid())
+  workspaceId        String
+  token              String   @unique
+  clientName         String
+  instagramAccountId String?
+  expiresAt          DateTime
+  createdAt          DateTime @default(now())
+
+  @@index([workspaceId])
 }

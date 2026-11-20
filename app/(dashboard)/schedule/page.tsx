@@ -20,6 +20,7 @@ type Post = {
   mediaKind?: string;
   scheduledAt: string;
   platforms?: string[];
+  socialConnectionIds?: string[];
   facebookPostId?: string | null;
   status: string;
   permalink: string | null;
@@ -90,6 +91,8 @@ export default function SchedulePage() {
   const [sizeId, setSizeId] = useState<SizeId>("portrait");
   const [video, setVideo] = useState<{ url: string; preview: string } | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
+  const [channels, setChannels] = useState<Array<{ id: string; name: string; platform: string; clientName: string; instagramAccountId: string | null }>>([]);
+  const [chosenChannels, setChosenChannels] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -109,6 +112,13 @@ export default function SchedulePage() {
   }, []);
 
   useEffect(() => onClientChange((id) => { if (id !== "all") setAccountId(id); }), []);
+
+  useEffect(() => {
+    fetch("/api/connect-links")
+      .then((r) => r.json())
+      .then((p) => p.success && setChannels(p.data.connections.filter((c: { platform: string }) => c.platform === "youtube")))
+      .catch(() => {});
+  }, []);
 
   const loadPosts = useCallback(() => {
     fetch("/api/scheduled-posts")
@@ -177,7 +187,8 @@ export default function SchedulePage() {
     if (kind === "IMAGE" && !uploads.length) return setError("Add at least one image");
     if (kind === "REEL" && !video) return setError("Upload a video first");
     const platforms = [toInstagram ? "instagram" : null, toFacebook ? "facebook" : null].filter(Boolean);
-    if (!platforms.length) return setError("Choose Instagram, Facebook or both");
+    const socialConnectionIds = kind === "REEL" ? chosenChannels : [];
+    if (!platforms.length && !socialConnectionIds.length) return setError("Choose where to post");
     const at = now ? new Date() : new Date(when);
     if (!now && at.getTime() < Date.now() - 60_000) return setError("Pick a time in the future");
     setBusy(true);
@@ -193,6 +204,7 @@ export default function SchedulePage() {
           videoUrl: kind === "REEL" ? video?.url : null,
           scheduledAt: at.toISOString(),
           platforms,
+          socialConnectionIds,
         }),
       });
       const payload = await res.json();
@@ -200,6 +212,7 @@ export default function SchedulePage() {
       setNotice(now ? "Publishing within a minute." : `Scheduled for ${at.toLocaleString()}.`);
       setUploads([]);
       setVideo(null);
+      setChosenChannels([]);
       setCaption("");
       loadPosts();
     } catch (e) {
@@ -250,7 +263,22 @@ export default function SchedulePage() {
                 <input type="checkbox" checked={toFacebook} onChange={(e) => setToFacebook(e.target.checked)} className="h-5 w-5" />
                 Facebook Page
               </label>
+              {kind === "REEL" &&
+                channels
+                  .filter((c) => !c.instagramAccountId || c.instagramAccountId === accountId)
+                  .map((c) => (
+                    <label key={c.id} className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-semibold cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={chosenChannels.includes(c.id)}
+                        onChange={(e) => setChosenChannels((list) => (e.target.checked ? [...list, c.id] : list.filter((x) => x !== c.id)))}
+                        className="h-5 w-5"
+                      />
+                      YouTube: {c.name}
+                    </label>
+                  ))}
             </div>
+            {kind === "IMAGE" && channels.length > 0 && <p className="text-xs text-muted">YouTube appears here when you choose Reel or video.</p>}
           </fieldset>
 
           <div className="flex flex-wrap gap-2" role="group" aria-label="Post type">
@@ -409,7 +437,7 @@ function PostRow({ post, username, onCancel }: { post: Post; username?: string; 
         <span className="h-14 w-14 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: BLACK, color: YELLOW }}>Reel</span>
       )}
       <div className="flex flex-col min-w-0" style={{ flex: "1 1 220px" }}>
-        <span className="text-sm font-semibold">@{username ?? "account"} · {new Date(post.scheduledAt).toLocaleString()} · {(post.platforms?.length ? post.platforms : ["instagram"]).map((p) => (p === "facebook" ? "Facebook" : "Instagram")).join(" + ")}</span>
+        <span className="text-sm font-semibold">@{username ?? "account"} · {new Date(post.scheduledAt).toLocaleString()} · {[...(post.platforms ?? []).map((p) => (p === "facebook" ? "Facebook" : "Instagram")), ...((post.socialConnectionIds?.length ?? 0) ? ["YouTube"] : [])].join(" + ")}</span>
         <span className="text-sm text-muted truncate">{post.caption || "No caption"}{post.mediaAssetIds.length > 1 ? ` · carousel of ${post.mediaAssetIds.length}` : ""}</span>
         {post.errorMessage && <span className="text-xs" style={{ color: "#B42318" }}>{post.errorMessage}</span>}
       </div>

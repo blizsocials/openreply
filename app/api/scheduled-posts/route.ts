@@ -24,7 +24,8 @@ const createSchema = z.object({
   mediaKind: z.enum(["IMAGE", "REEL"]).default("IMAGE"),
   videoUrl: z.string().url().optional().nullable(),
   scheduledAt: z.string().datetime(),
-  platforms: z.array(z.enum(["instagram", "facebook"])).min(1).default(["instagram"]),
+  platforms: z.array(z.enum(["instagram", "facebook"])).default(["instagram"]),
+  socialConnectionIds: z.array(z.string().min(1)).max(10).default([]),
 });
 
 export async function POST(request: NextRequest) {
@@ -40,6 +41,21 @@ export async function POST(request: NextRequest) {
     select: { id: true },
   });
   if (!account) return NextResponse.json({ success: false, error: "Account not found" }, { status: 404 });
+  if (input.platforms.length === 0 && input.socialConnectionIds.length === 0) {
+    return NextResponse.json({ success: false, error: "Choose at least one place to post" }, { status: 400 });
+  }
+  if (input.socialConnectionIds.length) {
+    const conns = await prisma.socialConnection.findMany({
+      where: { id: { in: input.socialConnectionIds }, workspaceId },
+      select: { platform: true },
+    });
+    if (conns.length !== input.socialConnectionIds.length) {
+      return NextResponse.json({ success: false, error: "Connected account not found" }, { status: 400 });
+    }
+    if (conns.some((c) => c.platform === "youtube") && input.mediaKind !== "REEL") {
+      return NextResponse.json({ success: false, error: "YouTube needs a video" }, { status: 400 });
+    }
+  }
   if (input.mediaKind === "REEL") {
     if (!input.videoUrl || !new URL(input.videoUrl).hostname.endsWith(".blob.vercel-storage.com")) {
       return NextResponse.json({ success: false, error: "Upload a video first" }, { status: 400 });
@@ -58,6 +74,7 @@ export async function POST(request: NextRequest) {
       caption: input.caption,
       mediaAssetIds: input.mediaAssetIds,
       platforms: input.platforms,
+      socialConnectionIds: input.socialConnectionIds,
       mediaKind: input.mediaKind,
       videoUrl: input.mediaKind === "REEL" ? input.videoUrl : null,
       scheduledAt: new Date(input.scheduledAt),
