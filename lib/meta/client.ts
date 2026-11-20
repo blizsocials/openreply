@@ -579,7 +579,7 @@ export async function getConversations(
   const seenIds = new Set<string>();
   const seenCursors = new Set<string>();
   let after: string | undefined;
-  let pageSize = 50;
+  let pageSize = 25;
 
   async function readPage(limit: number, requestedFields: string): Promise<Page> {
     // Never follow Meta's next URL: rebuild on our trusted host and carry the
@@ -592,7 +592,7 @@ export async function getConversations(
     return handleResponse<Page>(
       await metaFetch(url.toString(), {
         headers: { Authorization: `Bearer ${accessToken}` },
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(25_000),
       })
     );
   }
