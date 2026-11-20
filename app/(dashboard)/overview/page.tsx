@@ -156,7 +156,7 @@ export default function OverviewPage() {
             {data.provider !== "ZERNIO" && data.requestedCount === "all" ? t("All-time") : t("Recent")} —{" "}
             {t(totals.posts === 1 ? "{count} post" : "{count} posts", { count: totals.posts })} {t("from @")}
             {data.account.username}
-            {data.truncated ? t(" (capped at {count})", { count: totals.posts }) : ""}
+            {data.truncated && rangeQuery.startsWith("count") ? t(" (capped at {count})", { count: totals.posts }) : ""}
           </p>
           {followers !== null && (
             // Kept out of the tile row below: that row sums the selected posts,
@@ -209,7 +209,7 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {!insightsAvailable && (
+      {!insightsAvailable && posts.length > 0 && (
         <div className="panel rounded p-4 border border-border">
           <p className="text-sm text-foreground">
             {t("Views, reach, saved and shares need the insights permission.")}
