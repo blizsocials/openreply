@@ -87,6 +87,7 @@ export async function GET() {
         message: true,
         createdAt: true,
         resolvedAt: true,
+        payload: true,
       },
     }),
   ]);
