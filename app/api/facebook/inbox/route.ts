@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentWorkspaceId } from "@/lib/auth";
 import { getWorkspaceInstagramAccount } from "@/lib/instagram-accounts";
 import { createInstagramContext } from "@/lib/instagram/provider";
-import { debugPageFeed, listMessengerConversations, getMessengerThread, sendMessengerReply, listPageComments, replyToPageComment } from "@/lib/meta/facebook-inbox";
+import { listMessengerConversations, getMessengerThread, sendMessengerReply, listPageComments, replyToPageComment } from "@/lib/meta/facebook-inbox";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
   try {
     const kind = sp.get("kind");
     if (kind === "thread") return NextResponse.json({ success: true, data: { messages: await getMessengerThread(c.token, sp.get("id") ?? "") } });
-    if (kind === "debug") return NextResponse.json({ success: true, data: await debugPageFeed(c.token) });
     if (kind === "comments") return NextResponse.json({ success: true, data: { comments: await listPageComments(c.token) } });
     return NextResponse.json({ success: true, data: { conversations: await listMessengerConversations(c.token) } });
   } catch (err) {
