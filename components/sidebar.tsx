@@ -170,17 +170,16 @@ export default function Sidebar({
           })}
         </nav>
 
-        <div className="px-4 py-4">
-          <div className="rounded-xl p-4 flex flex-col gap-2" style={{ background: "#1C1C1C" }}>
-            <span className="text-sm font-semibold">Connected through Facebook</span>
-            <span className="text-xs leading-relaxed" style={{ color: "#B8B8B8" }}>
-              Every Instagram account linked to a Page in your Business Manager shows up here.
-            </span>
-            <a href="/api/facebook/connect" className="text-sm font-semibold" style={{ color: "#FFD701" }}>
-              Add or refresh clients
-            </a>
-          </div>
-          <p className="mt-4 text-sm truncate">{workspaceName}</p>
+        <div className="px-4 py-3">
+          <a
+            href="/api/facebook/connect"
+            title="Pulls in every Instagram account linked to a Page in your Business Manager"
+            className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold"
+            style={{ background: "#1C1C1C", color: "#FFD701", border: "1px solid #333333" }}
+          >
+            <span aria-hidden>⟳</span> Add or refresh clients
+          </a>
+          <p className="mt-3 text-xs truncate" style={{ color: "#B8B8B8" }}>{workspaceName}</p>
           <div className="mt-2 hidden"><LanguageSwitcher /></div>
         </div>
       </aside>
