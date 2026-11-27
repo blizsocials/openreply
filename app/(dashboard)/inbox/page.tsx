@@ -17,6 +17,49 @@ import AccountSelect, { type AccountOption } from "@/components/account-select";
 import { readCache, writeCache } from "@/lib/client-cache";
 import type { ConversationListItem } from "@/app/api/instagram/conversations/route";
 import type { ThreadMessage } from "@/app/api/instagram/conversations/[id]/route";
+import type { InboxComment } from "@/app/api/instagram/comments/route";
+import { onClientChange, readClient } from "@/lib/client-selection";
+
+const YELLOW = "#FFD701";
+const BLACK = "#0E0E0E";
+const WINDOW_MS = 24 * 3_600_000;
+const EMOJIS = ["🙏", "❤️", "😊", "😂", "🔥", "👏", "🎉", "✨", "👍", "🤗", "💛", "📩"];
+const AVATAR_COLORS = ["#F4D35E", "#EE964B", "#9BC1BC", "#C3B1E1", "#F7A9A8", "#A8D5BA", "#FFD6A5", "#BDE0FE"];
+
+function ago(iso: string | null): string {
+  if (!iso) return "";
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return "just now";
+  const m = s / 60, h = m / 60, d = h / 24;
+  if (m < 60) return `${Math.round(m)} min ago`;
+  if (h < 24) return `about ${Math.round(h)} hour${Math.round(h) === 1 ? "" : "s"} ago`;
+  if (d < 30) return `${Math.round(d)} day${Math.round(d) === 1 ? "" : "s"} ago`;
+  return `about ${Math.round(d / 30)} month${Math.round(d / 30) === 1 ? "" : "s"} ago`;
+}
+
+function Avatar({ name, size = 44 }: { name: string; size?: number }) {
+  const n = name.replace(/^@/, "") || "?";
+  const color = AVATAR_COLORS[n.charCodeAt(0) % AVATAR_COLORS.length];
+  return (
+    <span className="flex shrink-0 items-center justify-center rounded-full font-bold" style={{ width: size, height: size, background: color, color: BLACK, fontSize: size * 0.38 }}>
+      {n[0].toUpperCase()}
+    </span>
+  );
+}
+
+function useLocalSet(key: string) {
+  const [set, setSet] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try { return new Set(JSON.parse(window.localStorage.getItem(key) ?? "[]")); } catch { return new Set(); }
+  });
+  const toggle = (id: string) => setSet((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    try { window.localStorage.setItem(key, JSON.stringify([...next])); } catch {}
+    return next;
+  });
+  return [set, toggle] as const;
+}
 
 const POLL_MS = 12_000;
 // Cached list/threads are shown instantly on revisit, then revalidated in the
@@ -201,6 +244,7 @@ export default function InboxPage() {
 
   function openConversation(id: string) {
     setActiveId(id);
+    markSeen(id);
     setSendError(null);
     // Paint any cached thread synchronously so the pane never flashes empty
     // or shows the previously open conversation while the fetch runs.
@@ -262,162 +306,373 @@ export default function InboxPage() {
     }
   }
 
+  const [tab, setTab] = useState<"dms" | "comments">("dms");
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<"all" | "unread" | "open" | "saved">("all");
+  const [showInfo, setShowInfo] = useState(true);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [showSaved, setShowSaved] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [starred, toggleStar] = useLocalSet("inbox:starred");
+  const [seen, setSeen] = useState<Record<string, string>>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(window.localStorage.getItem("inbox:seen") ?? "{}"); } catch { return {}; }
+  });
+  const [savedReplies, setSavedReplies] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try { return JSON.parse(window.localStorage.getItem("inbox:savedReplies") ?? "null") ?? ["Thank you so much! 🙏", "Please check your DM, we just sent you the details.", "We'll get back to you shortly."]; } catch { return []; }
+  });
+  const [comments, setComments] = useState<InboxComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [activeComment, setActiveComment] = useState<string | null>(null);
+
+  function markSeen(id: string) {
+    setSeen((prev) => {
+      const next = { ...prev, [id]: new Date().toISOString() };
+      try { window.localStorage.setItem("inbox:seen", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+  function persistSaved(list: string[]) {
+    setSavedReplies(list);
+    try { window.localStorage.setItem("inbox:savedReplies", JSON.stringify(list)); } catch {}
+  }
+
+  // Follow the sidebar client switcher.
+  useEffect(() => {
+    const apply = (id: string) => { if (id && id !== "all") setSelectedAccountId(id); };
+    const saved = readClient();
+    if (saved) void Promise.resolve().then(() => apply(saved));
+    return onClientChange(apply);
+  }, []);
+
+  const loadComments = useCallback(async () => {
+    if (!selectedAccountId) return;
+    setCommentsLoading(true);
+    try {
+      const res = await fetch(`/api/instagram/comments?instagramAccountId=${selectedAccountId}`, { cache: "no-store" });
+      const data = await res.json();
+      if (data.success) setComments(data.data.comments);
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [selectedAccountId]);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => {
+      setComments([]);
+      setActiveComment(null);
+      void loadComments();
+    });
+  }, [loadComments]);
+
+  async function sync() {
+    setSyncing(true);
+    await Promise.all([loadConversations(false), loadComments(), activeId ? loadMessages(activeId, true) : Promise.resolve()]);
+    setSyncing(false);
+  }
+
+  const isUnread = (c: ConversationListItem) =>
+    !!c.lastMessage && !c.lastMessage.fromMe && (!seen[c.id] || (c.updatedTime ?? "") > seen[c.id]);
+  const windowClosed = (c: ConversationListItem) =>
+    !!c.lastMessage && !c.lastMessage.fromMe && !!c.lastMessage.createdTime && now - new Date(c.lastMessage.createdTime).getTime() > WINDOW_MS;
+
+  const q = query.trim().toLowerCase().replace(/^@/, "");
+  const shownConvs = conversations.filter((c) => {
+    if (q && !(c.contact.username ?? "").toLowerCase().includes(q) && !(c.lastMessage?.text ?? "").toLowerCase().includes(q)) return false;
+    if (filter === "unread") return isUnread(c);
+    if (filter === "open") return !!c.lastMessage && !windowClosed(c);
+    if (filter === "saved") return starred.has(c.id);
+    return true;
+  });
+  const shownComments = comments.filter((c) => {
+    if (q && !(c.username ?? "").toLowerCase().includes(q) && !c.text.toLowerCase().includes(q)) return false;
+    if (filter === "unread") return !c.replied;
+    if (filter === "saved") return starred.has(c.id);
+    return true;
+  });
+  const unreadCount = conversations.filter(isUnread).length;
+  const unrepliedComments = comments.filter((c) => !c.replied).length;
+  const comment = comments.find((c) => c.id === activeComment) ?? null;
+  const lastInbound = [...messages].reverse().find((m) => !m.fromMe)?.createdTime ?? null;
+  const hoursLeft = lastInbound ? (WINDOW_MS - (now - new Date(lastInbound).getTime())) / 3_600_000 : null;
+
+  async function replyToComment() {
+    const text = draft.trim();
+    if (!comment || !text || sending) return;
+    setSending(true);
+    setSendError(null);
+    const res = await fetch("/api/instagram/comments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ instagramAccountId: selectedAccountId, commentId: comment.id, mediaId: comment.media.id, text }),
+    }).then((r) => r.json()).catch(() => ({ success: false, error: "Reply failed" }));
+    setSending(false);
+    if (res.success) {
+      setDraft("");
+      setComments((list) => list.map((c) => (c.id === comment.id ? { ...c, replied: true } : c)));
+    } else setSendError(res.error ?? "Reply failed");
+  }
+
+  const chipBtn = "flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2 text-sm font-semibold hover:bg-surface-hover";
+  const contactName = tab === "dms" ? (active ? `@${active.contact.username ?? "unknown"}` : "") : comment ? `@${comment.username ?? "unknown"}` : "";
+  const hasSelection = tab === "dms" ? !!active : !!comment;
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-end justify-between gap-4">
-        <h1 className="text-lg font-semibold text-foreground">{t("Inbox")}</h1>
-        {accounts.length > 1 && (
-          <AccountSelect
-            accounts={accounts}
-            value={selectedAccountId}
-            onChange={setSelectedAccountId}
-            includeAll={false}
-          />
-        )}
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>Inbox</h1>
+        <p className="text-sm text-muted">Instagram DMs and comments for each client, in one place.</p>
       </div>
 
-      <div className="grid h-[calc(100dvh-11rem)] grid-cols-1 overflow-hidden rounded border border-border sm:grid-cols-[300px_1fr]">
-        {/* Conversation list. On mobile it takes the full pane and is hidden
-            once a thread is open (ManyChat-style); on sm+ it is always shown. */}
-        <div
-          className={`min-h-0 flex-col border-b border-border sm:flex sm:border-b-0 sm:border-r ${
-            active ? "hidden" : "flex"
-          }`}
-        >
-          <div className="shrink-0 border-b border-border px-4 py-3 text-sm font-semibold text-foreground">
-            {t("Conversations")}
-          </div>
+      <div className="flex flex-wrap items-center gap-2">
+        {accounts.length > 1 && (
+          <AccountSelect accounts={accounts} value={selectedAccountId} onChange={setSelectedAccountId} includeAll={false} />
+        )}
+        <select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} className={chipBtn} aria-label="Filter">
+          <option value="all">All</option>
+          <option value="unread">{tab === "dms" ? "Unread" : "Not replied"}</option>
+          {tab === "dms" && <option value="open">Reply window open</option>}
+          <option value="saved">Saved ⭐</option>
+        </select>
+        <button type="button" onClick={() => void sync()} className={chipBtn} disabled={syncing}>
+          <span className={syncing ? "animate-spin" : ""}>⟳</span> {syncing ? "Syncing…" : "Sync"}
+        </button>
+        <button type="button" onClick={() => setShowInfo((v) => !v)} className={chipBtn} style={showInfo ? { background: BLACK, color: "#fff", borderColor: BLACK } : undefined}>
+          👤 Info
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-1 rounded-xl bg-[#F0EEE6] p-1">
+          {([["dms", "DMs", unreadCount], ["comments", "Comments", unrepliedComments]] as const).map(([id, label, n]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => { setTab(id); setSendError(null); setDraft(""); if (filter === "open" && id === "comments") setFilter("all"); }}
+              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold"
+              style={tab === id ? { background: "#fff", boxShadow: "0 1px 2px rgba(0,0,0,.08)" } : { color: "#6B6B6B" }}
+            >
+              {label}
+              {n > 0 && <span className="rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: YELLOW, color: BLACK }}>{n}</span>}
+            </button>
+          ))}
+        </div>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="🔍  Search conversations…"
+          className="w-full max-w-sm rounded-xl border border-border bg-surface px-4 py-2.5 text-sm focus:outline-none"
+        />
+      </div>
+
+      <div className={`grid h-[calc(100dvh-17rem)] min-h-[480px] grid-cols-1 gap-3 ${showInfo && hasSelection ? "lg:grid-cols-[320px_1fr_280px]" : "md:grid-cols-[320px_1fr]"}`}>
+        {/* List */}
+        <div className={`min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface ${hasSelection ? "hidden md:flex" : "flex"}`}>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            {convLoading ? (
-              <p className="px-4 py-6 text-sm text-muted">{t("Loading…")}</p>
-            ) : convError ? (
-              <p className="px-4 py-6 text-sm text-error">{convError === "Failed to load conversations" ? t("Failed to load conversations") : convError}</p>
-            ) : conversations.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-muted">{t("No conversations yet.")}</p>
-            ) : (
-              conversations.map((c) => {
-                const isActive = c.id === activeId;
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => openConversation(c.id)}
-                    className={`block w-full border-b border-border px-4 py-3 text-left ${
-                      isActive ? "bg-surface-hover" : "hover:bg-surface-hover"
-                    }`}
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate text-sm font-medium text-foreground">
-                        {c.detailsUnavailable ? t("Details unavailable") : `@${c.contact.username ?? "unknown"}`}
+            {tab === "dms" ? (
+              convLoading ? <p className="p-6 text-sm text-muted">Loading conversations…</p>
+              : convError ? <p className="p-6 text-sm text-error">{convError}</p>
+              : shownConvs.length === 0 ? <p className="p-6 text-center text-sm text-muted">No conversations here. Tap Sync to check again.</p>
+              : shownConvs.map((c) => {
+                  const name = c.detailsUnavailable ? "Details unavailable" : `@${c.contact.username ?? "unknown"}`;
+                  const unread = isUnread(c);
+                  return (
+                    <button key={c.id} type="button" onClick={() => openConversation(c.id)} className="flex w-full gap-3 border-b border-border px-4 py-3.5 text-left" style={c.id === activeId ? { background: "#FFFBE0" } : undefined}>
+                      <span className="relative">
+                        <Avatar name={name} />
+                        {unread && <span className="absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-white" style={{ background: "#E5484D" }} />}
                       </span>
-                      <span className="shrink-0 text-[11px] text-zinc-500">
-                        {formatTime(c.updatedTime, locale)}
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-baseline justify-between gap-2">
+                          <span className={`truncate text-[15px] ${unread ? "font-bold" : "font-semibold"}`}>{name}</span>
+                          <span className="shrink-0 text-[11px] text-muted">{ago(c.updatedTime)}</span>
+                        </span>
+                        <span className={`mt-0.5 block truncate text-sm ${unread ? "text-foreground" : "text-muted"}`}>
+                          {c.lastMessage ? `${c.lastMessage.fromMe ? "You: " : ""}${c.lastMessage.text || "📎 Attachment"}` : "No messages"}
+                        </span>
+                        {windowClosed(c) && <span className="mt-0.5 block text-[11px] font-semibold" style={{ color: "#C2620A" }}>Reply window closed</span>}
                       </span>
-                    </div>
-                    {c.detailsUnavailable && (
-                      <p className="mt-0.5 text-xs text-muted">{t("Instagram could not load this conversation.")}</p>
-                    )}
-                    {c.lastMessage && (
-                      <p className="mt-0.5 truncate text-xs text-muted">
-                        {c.lastMessage.fromMe ? t("You: ") : ""}
-                        {c.lastMessage.text || t("(no text)")}
-                      </p>
-                    )}
-                  </button>
-                );
-              })
-            )}
+                      <span role="button" tabIndex={0} aria-label="Save" onClick={(e) => { e.stopPropagation(); toggleStar(c.id); }} className="self-start text-base" style={{ color: starred.has(c.id) ? "#E0B800" : "#C9C9C9" }}>★</span>
+                    </button>
+                  );
+                })
+            ) : commentsLoading && comments.length === 0 ? <p className="p-6 text-sm text-muted">Loading comments from recent posts…</p>
+            : shownComments.length === 0 ? <p className="p-6 text-center text-sm text-muted">No comments in the last 30 days.</p>
+            : shownComments.map((c) => (
+                <button key={c.id} type="button" onClick={() => { setActiveComment(c.id); setSendError(null); }} className="flex w-full gap-3 border-b border-border px-4 py-3.5 text-left" style={c.id === activeComment ? { background: "#FFFBE0" } : undefined}>
+                  <span className="relative">
+                    <Avatar name={c.username ?? "?"} />
+                    {!c.replied && <span className="absolute right-0 top-0 h-3 w-3 rounded-full border-2 border-white" style={{ background: "#E5484D" }} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-baseline justify-between gap-2">
+                      <span className="truncate text-[15px] font-semibold">@{c.username ?? "unknown"}</span>
+                      <span className="shrink-0 text-[11px] text-muted">{ago(c.timestamp)}</span>
+                    </span>
+                    <span className="mt-0.5 block truncate text-sm text-muted">{c.text}</span>
+                    <span className="mt-0.5 block text-[11px] font-semibold" style={{ color: c.replied ? "#2E8B2E" : "#C2620A" }}>{c.replied ? "Replied" : "Needs a reply"}</span>
+                  </span>
+                  {c.media.thumb && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.media.thumb} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+                  )}
+                </button>
+              ))}
           </div>
         </div>
 
-        {/* Thread. On mobile it is only shown once a conversation is open and
-            fills the pane; on sm+ it always sits beside the list. */}
-        <div
-          className={`min-h-0 flex-col ${active ? "flex" : "hidden sm:flex"}`}
-        >
-          {!active ? (
-            <div className="flex flex-1 items-center justify-center p-6 text-sm text-muted">
-              {t("Select a conversation to read and reply.")}
+        {/* Conversation */}
+        <div className={`min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface ${hasSelection ? "flex" : "hidden md:flex"}`}>
+          {!hasSelection ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted">
+              <span className="text-4xl">💬</span>
+              <span className="text-sm">Select a conversation to view messages</span>
             </div>
           ) : (
             <>
-              <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-3 text-sm font-semibold text-foreground">
-                <button
-                  type="button"
-                  onClick={() => setActiveId(null)}
-                  className="-ml-1 rounded px-2 py-1 text-muted hover:text-foreground sm:hidden"
-                  aria-label={t("Back to conversations")}
-                >
-                  {t("Back")}
-                </button>
-                <span className="truncate">
-                  {active.detailsUnavailable ? t("Details unavailable") : `@${active.contact.username ?? "unknown"}`}
-                </span>
+              <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
+                <button type="button" onClick={() => (tab === "dms" ? setActiveId(null) : setActiveComment(null))} className="text-muted md:hidden" aria-label="Back">‹</button>
+                <Avatar name={contactName} size={40} />
+                <div className="min-w-0">
+                  <div className="truncate font-semibold">{contactName}</div>
+                  <div className="text-xs text-muted">{tab === "dms" ? "Instagram DM" : "Instagram comment"}</div>
+                </div>
               </div>
 
-              <div ref={scrollRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
-                {active.detailsUnavailable ? (
-                  <p role="status" className="text-sm text-muted">
-                    {t("Instagram could not load the details of this conversation. Other conversations are still available. You can check this chat in Instagram.")}
-                  </p>
+              <div ref={scrollRef} className="min-h-0 flex-1 space-y-2.5 overflow-y-auto bg-[#FAF9F5] p-4">
+                {tab === "comments" && comment ? (
+                  <>
+                    <a href={comment.media.permalink ?? undefined} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-border bg-white p-2.5">
+                      {comment.media.thumb && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={comment.media.thumb} alt="" className="h-14 w-14 rounded-lg object-cover" />
+                      )}
+                      <span className="line-clamp-2 text-xs text-muted">{comment.media.caption || "View post"}</span>
+                    </a>
+                    <div className="flex justify-start">
+                      <div className="max-w-[80%] rounded-2xl rounded-bl-md border border-border bg-white px-3.5 py-2.5 text-sm">
+                        <p className="whitespace-pre-wrap break-words">{comment.text}</p>
+                        <p className="mt-1 text-[10px] text-muted">{ago(comment.timestamp)}</p>
+                      </div>
+                    </div>
+                  </>
+                ) : active?.detailsUnavailable ? (
+                  <p className="text-sm text-muted">Instagram could not load this conversation. You can still open it in the Instagram app.</p>
                 ) : threadLoading && messages.length === 0 ? (
-                  <p className="text-sm text-muted">{t("Loading…")}</p>
+                  <p className="text-sm text-muted">Loading…</p>
                 ) : messages.length === 0 ? (
-                  <p className="text-sm text-muted">{t("No messages.")}</p>
+                  <p className="text-sm text-muted">No messages.</p>
                 ) : (
                   messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className={`flex ${m.fromMe ? "justify-end" : "justify-start"}`}
-                    >
+                    <div key={m.id} className={`flex ${m.fromMe ? "justify-end" : "justify-start"}`}>
                       <div
-                        className={`max-w-[75%] rounded-lg px-3 py-2 text-sm ${
-                          m.fromMe
-                            ? "bg-accent text-white"
-                            : "bg-surface text-foreground border border-border"
-                        }`}
+                        className={`max-w-[75%] px-3.5 py-2.5 text-sm ${m.fromMe ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-bl-md border border-border bg-white"}`}
+                        style={m.fromMe ? { background: BLACK, color: "#fff" } : undefined}
                       >
-                        <p className="whitespace-pre-wrap break-words">{m.text}</p>
-                        <p
-                          className={`mt-1 text-[10px] ${
-                            m.fromMe ? "text-white/70" : "text-zinc-500"
-                          }`}
-                        >
-                          {formatTime(m.createdTime, locale)}
-                        </p>
+                        <p className="whitespace-pre-wrap break-words">{m.text || "📎 Attachment"}</p>
+                        <p className="mt-1 text-[10px]" style={{ color: m.fromMe ? YELLOW : "#8A8A8A" }}>{ago(m.createdTime)}</p>
                       </div>
                     </div>
                   ))
                 )}
               </div>
 
-              <div className="shrink-0 border-t border-border p-3">
-                {sendError && (
-                  <p className="mb-2 text-xs text-error">{sendError}</p>
+              {tab === "dms" && hoursLeft !== null && (
+                <div className="shrink-0 border-t border-border px-4 py-2 text-xs" style={{ color: hoursLeft > 0 ? "#5A5A5A" : "#C2620A" }}>
+                  {hoursLeft > 0
+                    ? `Reply window open for about ${Math.max(1, Math.round(hoursLeft))} hour${Math.round(hoursLeft) === 1 ? "" : "s"}. Your reply does not extend it.`
+                    : "Reply window closed. Instagram only allows replies within 24 hours of their last message."}
+                </div>
+              )}
+
+              <div className="relative shrink-0 border-t border-border p-3">
+                <div className="mb-2 flex gap-4 text-xs font-semibold text-muted">
+                  <button type="button" onClick={() => { setShowEmoji((v) => !v); setShowSaved(false); }}>😊 Emoji</button>
+                  <button type="button" onClick={() => { setShowSaved((v) => !v); setShowEmoji(false); }}>🔖 Saved replies</button>
+                  {tab === "comments" && <span className="ml-auto font-normal">Replies post publicly under the comment</span>}
+                </div>
+                {showEmoji && (
+                  <div className="absolute bottom-full left-3 z-20 mb-2 grid grid-cols-6 gap-1 rounded-xl border border-border bg-white p-2 shadow-lg">
+                    {EMOJIS.map((e) => (
+                      <button key={e} type="button" className="rounded p-1 text-xl hover:bg-zinc-100" onClick={() => { setDraft((d) => d + e); setShowEmoji(false); }}>{e}</button>
+                    ))}
+                  </div>
                 )}
+                {showSaved && (
+                  <div className="absolute bottom-full left-3 z-20 mb-2 w-80 rounded-xl border border-border bg-white p-2 shadow-lg">
+                    {savedReplies.map((r, i) => (
+                      <div key={i} className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-zinc-50">
+                        <button type="button" className="min-w-0 flex-1 truncate text-left text-sm" onClick={() => { setDraft(r); setShowSaved(false); }}>{r}</button>
+                        <button type="button" aria-label="Remove" className="text-xs text-muted" onClick={() => persistSaved(savedReplies.filter((_, j) => j !== i))}>✕</button>
+                      </div>
+                    ))}
+                    <button type="button" disabled={!draft.trim()} onClick={() => persistSaved([...savedReplies, draft.trim()])} className="mt-1 w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold disabled:opacity-40">
+                      + Save what I&rsquo;ve typed as a reply
+                    </button>
+                  </div>
+                )}
+                {sendError && <p className="mb-2 text-xs text-error">{sendError}</p>}
                 <div className="flex items-end gap-2">
                   <textarea
-                    disabled={active.detailsUnavailable || !active.contact.id}
+                    disabled={tab === "dms" && (active?.detailsUnavailable || !active?.contact.id)}
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
-                    onKeyDown={handleKeyDown}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void (tab === "dms" ? handleSend() : replyToComment()); }
+                    }}
                     rows={1}
-                    placeholder={t("Write a reply…  (Enter to send, Shift+Enter for a new line)")}
-                    className="max-h-32 min-h-[40px] flex-1 resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
+                    placeholder="Type a reply…"
+                    className="max-h-32 min-h-[46px] flex-1 resize-none rounded-xl border border-border bg-white px-4 py-3 text-sm focus:outline-none"
                   />
                   <button
                     type="button"
-                    onClick={() => void handleSend()}
-                    disabled={sending || !draft.trim() || !active.contact.id || active.detailsUnavailable}
-                    className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+                    aria-label="Send"
+                    onClick={() => void (tab === "dms" ? handleSend() : replyToComment())}
+                    disabled={sending || !draft.trim()}
+                    className="flex h-[46px] w-[46px] items-center justify-center rounded-xl text-lg font-bold disabled:opacity-40"
+                    style={{ background: YELLOW, color: BLACK }}
                   >
-                    {sending ? t("Sending…") : t("Send")}
+                    ➤
                   </button>
                 </div>
               </div>
             </>
           )}
         </div>
+
+        {/* Contact details */}
+        {showInfo && hasSelection && (
+          <div className="hidden min-h-0 flex-col overflow-y-auto rounded-2xl border border-border bg-surface lg:flex">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <span className="font-semibold">Contact details</span>
+              <button type="button" onClick={() => setShowInfo(false)} aria-label="Close" className="text-muted">✕</button>
+            </div>
+            <div className="flex flex-col items-center gap-2 px-4 py-6">
+              <span className="rounded-full p-1" style={{ background: `linear-gradient(135deg, ${YELLOW}, #E5484D)` }}>
+                <Avatar name={contactName} size={84} />
+              </span>
+              <span className="text-lg font-bold">{contactName}</span>
+              <span className="text-xs text-muted">Instagram</span>
+              <a href={`https://instagram.com/${contactName.replace(/^@/, "")}`} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold underline">View on Instagram ↗</a>
+            </div>
+            <div className="grid grid-cols-2 border-t border-border text-center">
+              <div className="border-r border-border py-4">
+                <div className="text-2xl font-bold">{tab === "dms" ? messages.length : comments.filter((c) => c.username === comment?.username).length}</div>
+                <div className="text-xs text-muted">{tab === "dms" ? "Messages" : "Comments"}</div>
+              </div>
+              <button type="button" onClick={() => toggleStar(tab === "dms" ? active!.id : comment!.id)} className="py-4">
+                <div className="text-2xl" style={{ color: starred.has(tab === "dms" ? active?.id ?? "" : comment?.id ?? "") ? "#E0B800" : "#C9C9C9" }}>★</div>
+                <div className="text-xs text-muted">{starred.has(tab === "dms" ? active?.id ?? "" : comment?.id ?? "") ? "Saved" : "Save"}</div>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
