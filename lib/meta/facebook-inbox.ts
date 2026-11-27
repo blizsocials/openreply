@@ -69,8 +69,8 @@ export async function sendMessengerReply(composite: string, recipientId: string,
 export async function listPageComments(composite: string) {
   const { pageId, token } = pageCredentials(composite);
   const r = await graph<{ data: Array<{ id: string; message?: string; full_picture?: string; permalink_url?: string; comments?: { data: Array<{ id: string; message?: string; created_time: string; from?: { id: string; name?: string }; comments?: { data: { from?: { id: string } }[] } }> } }> }>(
-    `${pageId}/published_posts`, token,
-    { fields: "message,full_picture,permalink_url,comments.order(reverse_chronological).limit(25){message,created_time,from,comments.limit(10){from}}", limit: "8" }
+    `${pageId}/feed`, token,
+    { fields: "message,full_picture,permalink_url,comments.filter(stream).limit(25){message,created_time,from,comments.limit(10){from}}", limit: "8" }
   );
   const out = [];
   for (const post of r.data) {
