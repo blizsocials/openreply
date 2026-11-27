@@ -37,6 +37,17 @@ function ago(iso: string | null): string {
   return `about ${Math.round(d / 30)} month${Math.round(d / 30) === 1 ? "" : "s"} ago`;
 }
 
+// Turn Meta's raw errors into steps the team can act on.
+function friendlyError(raw: string): string {
+  if (/administrator, editor, or moderator|Two Factor/i.test(raw))
+    return "Meta is blocking messages for this client because your Facebook profile does not have full access to their Page, or the Page needs two-factor authentication. In the client's Business Manager, give your profile full control of the Page (Messages included), turn on two-factor authentication on your Facebook account, then click Add or refresh clients in the sidebar.";
+  if (/disabled access to Instagram messages|#200/i.test(raw))
+    return "The client has switched off message access for connected tools. On their Instagram app: Settings, Messages and story replies, Message controls, Connected tools, then turn on Allow access to messages. Then press Sync.";
+  if (/timeout|aborted|Failed to load/i.test(raw))
+    return "Instagram took too long to answer. Press Sync to try again.";
+  return raw;
+}
+
 function Avatar({ name, size = 44 }: { name: string; size?: number }) {
   const n = name.replace(/^@/, "") || "?";
   const color = AVATAR_COLORS[n.charCodeAt(0) % AVATAR_COLORS.length];
@@ -329,6 +340,7 @@ export default function InboxPage() {
   });
   const [comments, setComments] = useState<InboxComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
   const [activeComment, setActiveComment] = useState<string | null>(null);
 
   function markSeen(id: string) {
@@ -357,7 +369,10 @@ export default function InboxPage() {
     try {
       const res = await fetch(`/api/instagram/comments?instagramAccountId=${selectedAccountId}`, { cache: "no-store" });
       const data = await res.json();
-      if (data.success) setComments(data.data.comments);
+      if (data.success) {
+        setComments(data.data.comments);
+        setCommentsError(null);
+      } else setCommentsError(data.error ?? "Failed to load comments");
     } finally {
       setCommentsLoading(false);
     }
@@ -477,7 +492,7 @@ export default function InboxPage() {
           <div className="min-h-0 flex-1 overflow-y-auto">
             {tab === "dms" ? (
               convLoading ? <p className="p-6 text-sm text-muted">Loading conversations…</p>
-              : convError ? <p className="p-6 text-sm text-error">{convError}</p>
+              : convError ? <p className="p-6 text-sm leading-relaxed" style={{ color: "#B42318" }}>{friendlyError(convError)}</p>
               : shownConvs.length === 0 ? <p className="p-6 text-center text-sm text-muted">No conversations here. Tap Sync to check again.</p>
               : shownConvs.map((c) => {
                   const name = c.detailsUnavailable ? "Details unavailable" : `@${c.contact.username ?? "unknown"}`;
@@ -502,7 +517,8 @@ export default function InboxPage() {
                     </button>
                   );
                 })
-            ) : commentsLoading && comments.length === 0 ? <p className="p-6 text-sm text-muted">Loading comments from recent posts…</p>
+            ) : commentsError && comments.length === 0 ? <p className="p-6 text-sm leading-relaxed" style={{ color: "#B42318" }}>{friendlyError(commentsError)}</p>
+            : commentsLoading && comments.length === 0 ? <p className="p-6 text-sm text-muted">Loading comments from recent posts…</p>
             : shownComments.length === 0 ? <p className="p-6 text-center text-sm text-muted">No comments in the last 30 days.</p>
             : shownComments.map((c) => (
                 <button key={c.id} type="button" onClick={() => { setActiveComment(c.id); setSendError(null); }} className="flex w-full gap-3 border-b border-border px-4 py-3.5 text-left" style={c.id === activeComment ? { background: "#FFFBE0" } : undefined}>
