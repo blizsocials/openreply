@@ -93,3 +93,8 @@ export async function replyToPageComment(composite: string, commentId: string, t
   const { token } = pageCredentials(composite);
   return graph(`${commentId}/comments`, token, {}, "POST", { message: text });
 }
+
+export async function debugPageFeed(composite: string) {
+  const { pageId, token } = pageCredentials(composite);
+  return graph<unknown>(`${pageId}/feed`, token, { fields: "id,created_time,comments.summary(true).limit(2){message,from}", limit: "3" });
+}
