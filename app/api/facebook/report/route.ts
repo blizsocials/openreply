@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await createInstagramContext(account);
     if (ctx.provider !== "META") return NextResponse.json({ success: false, error: "Facebook is not connected for this client." }, { status: 400 });
-    return NextResponse.json({ success: true, data: await getPageReport(ctx.accessToken, since, until) });
+    return NextResponse.json({ success: true, data: await getPageReport(ctx.accessToken, since, until) }, { headers: { "Cache-Control": "private, max-age=600" } });
   } catch (err) {
     return NextResponse.json({ success: false, error: err instanceof Error ? err.message : "Facebook request failed" }, { status: 500 });
   }

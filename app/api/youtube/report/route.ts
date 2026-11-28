@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   const conn = all.find((c) => c.instagramAccountId === igId) ?? (ig ? all.find((c) => norm(c.clientName) === norm(ig.username) || norm(c.name) === norm(ig.username)) : undefined);
   if (!conn) return NextResponse.json({ success: false, error: "No YouTube channel is connected for this client yet. Send them a connect link from Clients." }, { status: 404 });
   try {
-    return NextResponse.json({ success: true, data: await getYoutubeReport(conn.id, since, until) });
+    return NextResponse.json({ success: true, data: await getYoutubeReport(conn.id, since, until) }, { headers: { "Cache-Control": "private, max-age=600" } });
   } catch (err) {
     return NextResponse.json({ success: false, error: err instanceof Error ? err.message : "YouTube request failed" }, { status: 500 });
   }

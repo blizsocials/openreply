@@ -277,7 +277,10 @@ export async function GET(request: NextRequest) {
       posts,
     };
 
-    return NextResponse.json({ success: true, data });
+    // Blizsocials: let the browser reuse this for 10 minutes. Results and Client
+    // reports ask for the same client and dates repeatedly, and each fresh call
+    // fetches every post's insights from Instagram, which is the slow part.
+    return NextResponse.json({ success: true, data }, { headers: { "Cache-Control": "private, max-age=600" } });
   } catch (err) {
     console.error("[Instagram Overview] Error:", err);
     return NextResponse.json(
