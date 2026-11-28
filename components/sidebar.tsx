@@ -89,12 +89,8 @@ export default function Sidebar({
           style={{ paddingTop: "calc(1.25rem + env(safe-area-inset-top))" }}
         >
           <Link href="/dashboard" className="flex items-center gap-3">
-            <span
-              className="flex items-center justify-center rounded-lg text-lg font-bold"
-              style={{ width: 36, height: 36, background: "#FFD701", color: "#0E0E0E", fontFamily: "var(--font-display)" }}
-            >
-              b
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/bliz-app-logo.png" alt="" width={36} height={36} className="rounded-lg" style={{ width: 36, height: 36 }} />
             <span className="flex flex-col leading-tight">
               <span className="text-base font-semibold" style={{ fontFamily: "var(--font-display)" }}>Blizsocials</span>
               <span className="text-xs" style={{ color: "#B8B8B8" }}>Automations</span>
