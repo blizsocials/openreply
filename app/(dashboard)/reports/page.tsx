@@ -23,7 +23,7 @@ const label = (r: Range) => {
   return `${new Date(r.from + "T12:00:00Z").toLocaleDateString("en-GB", o)} to ${new Date(r.to + "T12:00:00Z").toLocaleDateString("en-GB", { ...o, year: "numeric" })}`;
 };
 const interactions = (p: Post) => p.likes + p.comments + (p.saved ?? 0) + (p.shares ?? 0);
-const kind = (p: Post) => (p.mediaType === "REELS" || p.mediaType === "VIDEO" ? "Reels" : p.mediaType === "CAROUSEL_ALBUM" ? "Carousels" : p.mediaType === "STORY" ? "Stories" : "Images");
+const kind = (p: Post) => (p.mediaType === "REELS" || p.mediaType === "VIDEO" ? "Reels" : p.mediaType === "CAROUSEL_ALBUM" ? "Carousels" : p.mediaType === "STORY" ? "Stories" : p.mediaType === "TEXT" ? "Text" : "Images");
 
 type DayRow = { date: string; posts: number; eng: number; likes: number; comments: number; saved: number; shares: number; reach: number; views: number };
 function daily(posts: Post[], r: Range): DayRow[] {
@@ -97,16 +97,24 @@ export default function ReportsPage() {
   }, []);
 
   useEffect(() => {
-    if (!client) return;
+    if (!client || (platform !== "instagram" && platform !== "facebook")) return;
     let live = true;
     void Promise.resolve().then(() => { setLoading(true); setError(null); });
-    const get = (r: Range) => fetch(`/api/instagram/overview?instagramAccountId=${client}&since=${r.from}&until=${r.to}`).then((x) => x.json()).then((p) => { if (!p.success) throw new Error(p.error || "Could not load"); return p.data as Overview; });
+    const get = (r: Range): Promise<Overview> => platform === "facebook"
+      ? fetch(`/api/facebook/report?instagramAccountId=${client}&since=${r.from}&until=${r.to}`).then((x) => x.json()).then((p) => {
+          if (!p.success) throw new Error(p.error || "Could not load Facebook");
+          const posts = p.data.posts as Post[];
+          const t = { posts: posts.length, views: 0, reach: 0, likes: 0, comments: 0, saved: 0, shares: 0, interactions: 0 };
+          for (const x of posts) { t.likes += x.likes; t.comments += x.comments; t.shares += x.shares ?? 0; t.interactions += interactions(x); }
+          return { account: { id: client, username: p.data.name ?? "" }, followers: p.data.followers, followerHistory: [], insightsAvailable: false, totals: t, posts };
+        })
+      : fetch(`/api/instagram/overview?instagramAccountId=${client}&since=${r.from}&until=${r.to}`).then((x) => x.json()).then((p) => { if (!p.success) throw new Error(p.error || "Could not load"); return p.data as Overview; });
     Promise.all([get(range), get(prev).catch(() => null)])
       .then(([x, y]) => { if (live) { setA(x); setB(y); } })
       .catch((e) => live && setError(e instanceof Error ? e.message : "Could not load"))
       .finally(() => live && setLoading(false));
     return () => { live = false; };
-  }, [client, range, prev]);
+  }, [client, range, prev, platform]);
 
   const name = accounts.find((x) => x.id === client)?.username ?? "";
   const n = days(range);
@@ -186,7 +194,7 @@ export default function ReportsPage() {
             ))}
           </div>
 
-          {platform !== "instagram" ? (
+          {platform !== "instagram" && platform !== "facebook" ? (
             <p className="rounded-xl border border-dashed border-border p-6 text-sm text-muted">This platform&apos;s report switches on as soon as its connection is approved for this client. Until then nothing is shown here, so no number is ever guessed.</p>
           ) : error ? (
             <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
@@ -194,8 +202,9 @@ export default function ReportsPage() {
             <p className="p-6 text-sm text-muted">{loading ? "Loading the report…" : "Choose a client to see their report."}</p>
           ) : (
             <div className={`space-y-4 ${loading ? "opacity-60" : ""}`}>
-              {!a.insightsAvailable && <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Instagram did not share reach and views for this account, so those show as 0. Reconnect the client with insights permission to fill them in.</p>}
-              <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ background: "#FFFBE3", border: "1px solid #F3E3A0" }}><b>In one minute.</b> {summary}</div>
+              {platform === "facebook" && <p className="rounded-xl bg-[#F4F7FF] p-3 text-xs text-[#2B4C9B]">Facebook Page: posts, reactions, comments and shares are counted from the Page itself. Reach and views per post need Meta&apos;s Page insights permission, which comes with App Review, so they show as n/a until then.</p>}
+              {platform === "instagram" && !a.insightsAvailable && <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Instagram did not share reach and views for this account, so those show as 0. Reconnect the client with insights permission to fill them in.</p>}
+              <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ background: "#FFFBE3", border: "1px solid #F3E3A0" }}><b>In one minute.</b> {platform === "facebook" ? summary.replace(`@${name}`, a.account.username || `@${name}`).replace(/reached [^ ]+ accounts( \([^)]*\))? and /, "") : summary}</div>
 
               <Block title="Audience summary">
                 <Metric label="Total followers" value={followersAt(a, range) ?? a.followers} prev={followersAt(b, prev)} />

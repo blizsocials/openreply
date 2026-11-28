@@ -93,3 +93,42 @@ export async function replyToPageComment(composite: string, commentId: string, t
   const { token } = pageCredentials(composite);
   return graph(`${commentId}/comments`, token, {}, "POST", { message: text });
 }
+
+/** Blizsocials: Page posts with public counts for the client report. */
+export async function getPageReport(composite: string, since: string, until: string) {
+  const { pageId, token } = pageCredentials(composite);
+  const page = await graph<{ followers_count?: number; fan_count?: number; name?: string }>(pageId, token, { fields: "followers_count,fan_count,name" });
+  type P = { id: string; message?: string; created_time: string; full_picture?: string; permalink_url?: string; status_type?: string; shares?: { count: number }; reactions?: { summary: { total_count: number } }; comments?: { summary: { total_count: number } } };
+  const posts: P[] = [];
+  let next: string | null = null;
+  let r = await graph<{ data: P[]; paging?: { next?: string } }>(`${pageId}/posts`, token, {
+    fields: "id,message,created_time,full_picture,permalink_url,status_type,shares,reactions.summary(total_count).limit(0),comments.summary(total_count).limit(0)",
+    since, until: `${until}T23:59:59`, limit: "100",
+  });
+  posts.push(...r.data);
+  next = r.paging?.next ?? null;
+  for (let i = 0; next && i < 4; i++) {
+    const res = await fetch(next, { signal: AbortSignal.timeout(25_000) });
+    r = (await res.json()) as { data: P[]; paging?: { next?: string } };
+    posts.push(...(r.data ?? []));
+    next = r.paging?.next ?? null;
+  }
+  return {
+    name: page.name ?? null,
+    followers: page.followers_count ?? page.fan_count ?? null,
+    posts: posts.map((p) => ({
+      id: p.id,
+      caption: p.message?.trim().slice(0, 160) ?? null,
+      permalink: p.permalink_url ?? null,
+      thumbnailUrl: p.full_picture ?? null,
+      mediaType: p.status_type === "added_video" ? "VIDEO" : p.full_picture ? "IMAGE" : "TEXT",
+      timestamp: p.created_time,
+      views: null,
+      reach: null,
+      likes: p.reactions?.summary.total_count ?? 0,
+      comments: p.comments?.summary.total_count ?? 0,
+      saved: null,
+      shares: p.shares?.count ?? 0,
+    })),
+  };
+}
