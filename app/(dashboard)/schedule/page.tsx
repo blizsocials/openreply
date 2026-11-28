@@ -262,14 +262,14 @@ export default function SchedulePage() {
   const upcoming = posts.filter((p) => p.status === "SCHEDULED" || p.status === "PUBLISHING").sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
   const done = posts.filter((p) => p.status === "PUBLISHED" || p.status === "FAILED");
 
-  const field = "w-full rounded-xl border border-border bg-surface px-3 py-3 text-sm outline-none focus:border-accent";
+  const field = "w-full rounded-xl border border-border bg-surface px-3 py-2 text-[13px] outline-none focus:border-accent";
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-5">
 
       <div className="flex flex-wrap gap-6 items-start">
-        <section className="panel p-5 flex flex-col gap-4" style={{ flex: "999 1 420px", minWidth: 0 }}>
-          <label className="flex flex-col gap-2 text-sm font-semibold">
+        <section className="panel flex flex-col gap-4 rounded-2xl p-5" style={{ flex: "999 1 420px", minWidth: 0 }}>
+          <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#444]">
             Client account
             <select value={accountId} onChange={(e) => { setAccountId(e.target.value); writeClient(e.target.value); }} className={field}>
               {accounts.map((a) => (
@@ -279,7 +279,7 @@ export default function SchedulePage() {
           </label>
 
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-semibold mb-2">Post to</legend>
+            <legend className="mb-1.5 text-xs font-semibold text-[#444]">Post to</legend>
             <div className="flex flex-wrap items-center gap-2">
               <IconToggle id="instagram" title="Instagram" on={toInstagram} onClick={() => setToInstagram((v) => !v)} />
               <IconToggle id="facebook" title="Facebook Page" on={toFacebook} onClick={() => setToFacebook((v) => !v)} />
@@ -297,7 +297,7 @@ export default function SchedulePage() {
                 ))}
               <span className="mx-1 h-8 w-px bg-border" aria-hidden />
               {PLATFORM_ORDER.filter((id) => !PLATFORMS[id].live).map((id) => (
-                <span key={id} title={`${PLATFORMS[id].name}: coming soon`} className="flex h-12 w-12 items-center justify-center rounded-xl border border-dashed border-border opacity-35 grayscale">
+                <span key={id} title={`${PLATFORMS[id].name}: coming soon`} className="flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-border opacity-35 grayscale">
                   <PlatformIcon id={id} size={22} />
                 </span>
               ))}
@@ -328,7 +328,7 @@ export default function SchedulePage() {
                   <button type="button" onClick={() => setVideo(null)} className="text-sm font-semibold underline">Remove</button>
                 </div>
               ) : (
-                <label className="rounded-xl border-2 border-dashed border-border px-4 py-6 text-sm text-muted cursor-pointer text-center">
+                <label className="cursor-pointer rounded-xl border-[1.5px] border-dashed border-[#D6D3C9] bg-[#FCFBF8] px-4 py-6 text-center text-[12.5px] text-muted">
                   {progress !== null ? `Uploading… ${progress}%` : "Choose a video"}
                   <input type="file" accept="video/mp4,video/quicktime" className="sr-only" onChange={(e) => { void onVideo(e.target.files?.[0]); e.target.value = ""; }} />
                 </label>
@@ -351,7 +351,7 @@ export default function SchedulePage() {
           )}
 
           {kind === "IMAGE" && (
-          <label className="flex flex-col gap-2 text-sm font-semibold">
+          <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#444]">
             Image size (applied as you add images)
             <select value={sizeId} onChange={(e) => setSizeId(e.target.value as SizeId)} className={field}>
               {SIZES.map((sz) => (
@@ -391,7 +391,7 @@ export default function SchedulePage() {
 
           )}
 
-          <label className="flex flex-col gap-2 text-sm font-semibold">
+          <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#444]">
             Caption
             <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={6} maxLength={2200} className={field} placeholder="Write the caption, hashtags included" />
             {(() => {
@@ -406,7 +406,7 @@ export default function SchedulePage() {
             <span className="text-xs font-normal text-muted">{caption.length} / 2200</span>
           </label>
 
-          <label className="flex flex-col gap-2 text-sm font-semibold">
+          <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#444]">
             Publish at (your time)
             <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={field} />
           </label>
@@ -488,7 +488,7 @@ function IconToggle({ id, title, on, onClick, disabled }: { id: "instagram" | "f
       aria-pressed={on}
       disabled={disabled}
       onClick={onClick}
-      className={`relative flex h-12 w-12 items-center justify-center rounded-xl border-2 transition ${on ? "border-[#0E0E0E] bg-[#FFF6BF]" : "border-border bg-surface opacity-50 grayscale"} disabled:cursor-not-allowed`}
+      className={`relative flex h-10 w-10 items-center justify-center rounded-xl border-2 transition ${on ? "border-[#0E0E0E] bg-[#FFF6BF]" : "border-border bg-surface opacity-50 grayscale"} disabled:cursor-not-allowed`}
     >
       <PlatformIcon id={id} size={24} />
       {on && <span className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-[#0E0E0E] text-[10px] font-bold text-[#FFD701]">✓</span>}
