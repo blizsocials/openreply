@@ -25,6 +25,21 @@ const label = (r: Range) => {
 const interactions = (p: Post) => p.likes + p.comments + (p.saved ?? 0) + (p.shares ?? 0);
 const kind = (p: Post) => (p.mediaType === "REELS" || p.mediaType === "VIDEO" ? "Reels" : p.mediaType === "CAROUSEL_ALBUM" ? "Carousels" : p.mediaType === "STORY" ? "Stories" : "Images");
 
+type DayRow = { date: string; posts: number; eng: number; likes: number; comments: number; saved: number; shares: number; reach: number; views: number };
+function daily(posts: Post[], r: Range): DayRow[] {
+  const out: DayRow[] = [];
+  for (let t = Date.parse(r.from + "T12:00:00Z"); t <= Date.parse(r.to + "T12:00:00Z"); t += DAY) out.push({ date: iso(t), posts: 0, eng: 0, likes: 0, comments: 0, saved: 0, shares: 0, reach: 0, views: 0 });
+  const idx = new Map(out.map((d, i) => [d.date, i]));
+  for (const p of posts) {
+    const i = idx.get(iso(new Date(p.timestamp).getTime() + 3_600_000));
+    if (i == null) continue;
+    const d = out[i];
+    d.posts += 1; d.eng += interactions(p); d.likes += p.likes; d.comments += p.comments; d.saved += p.saved ?? 0; d.shares += p.shares ?? 0; d.reach += p.reach ?? 0; d.views += p.views ?? 0;
+  }
+  return out;
+}
+const short = (d: string) => new Date(d + "T12:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+
 const PRESETS = ["7 days", "30 days", "This month", "Last month", "Custom"] as const;
 const COMPARE = ["Previous period", "Same period last year"] as const;
 type Preset = (typeof PRESETS)[number];
@@ -64,6 +79,7 @@ export default function ReportsPage() {
   const [a, setA] = useState<Overview | null>(null);
   const [b, setB] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sortBy, setSortBy] = useState<"eng" | "reach" | "views" | "date">("eng");
   const [error, setError] = useState<string | null>(null);
 
   const range = useMemo(() => presetRange(preset, today, custom), [preset, today, custom]);
@@ -230,20 +246,46 @@ export default function ReportsPage() {
 
               {view === "detailed" && (
                 <>
+                  <ChartCard title="Posts published vs engagement received over time" note={`Avg. posts per day: ${(a.totals.posts / n).toFixed(1)}`}>
+                    <Combo rows={daily(a.posts, range)} />
+                  </ChartCard>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <ChartCard title="Engagement actions received over time">
+                      <Stacked rows={daily(a.posts, range)} />
+                    </ChartCard>
+                    <ChartCard title="Engagement breakdown">
+                      <Donut items={([["Likes", a.totals.likes], ["Comments", a.totals.comments], ["Saves", a.totals.saved], ["Shares", a.totals.shares]] as Array<[string, number]>).filter((x) => x[1] > 0)} />
+                    </ChartCard>
+                  </div>
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <ChartCard title="Posts by type">
+                      <Donut items={Object.entries((a.posts ?? []).reduce<Record<string, number>>((m, p) => { m[kind(p)] = (m[kind(p)] ?? 0) + 1; return m; }, {})).sort((x, y) => y[1] - x[1])} />
+                    </ChartCard>
+                    <ChartCard title="Reach: this period vs the period before" note="Day 1 of each period lined up">
+                      <Overlay a={daily(a.posts, range).map((d) => d.reach)} b={b ? daily(b.posts, prev).map((d) => d.reach) : []} labels={daily(a.posts, range).map((d) => short(d.date))} />
+                    </ChartCard>
+                  </div>
                   <div className="rounded-xl border border-border p-4">
                     <p className="mb-3 text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>Followers over time</p>
                     <Spark points={(a.followerHistory ?? []).filter((p) => p.date >= range.from && p.date <= range.to)} />
                   </div>
                   <div className="rounded-xl border border-border p-4">
-                    <p className="mb-3 text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>Top posts by engagement</p>
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                      {top.slice(0, 5).map((p) => (
-                        <a key={p.id} href={p.permalink ?? "#"} target="_blank" rel="noreferrer" className="space-y-1.5 rounded-lg border border-border p-2 text-xs">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>Every post in this period</p>
+                      <div className="flex-1" />
+                      <Seg options={["eng", "reach", "views", "date"] as const} labels={{ eng: "Engagement", reach: "Reach", views: "Views", date: "Newest" }} value={sortBy} onChange={setSortBy} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                      {[...a.posts].sort((x, y) => sortBy === "date" ? y.timestamp.localeCompare(x.timestamp) : sortBy === "eng" ? interactions(y) - interactions(x) : ((y[sortBy] ?? 0) - (x[sortBy] ?? 0))).map((p) => (
+                        <a key={p.id} href={p.permalink ?? "#"} target="_blank" rel="noreferrer" className="flex flex-col gap-1.5 rounded-xl border border-border p-2 text-xs hover:border-[#0E0E0E]">
+                          <p className="text-[10.5px] text-muted">{new Date(p.timestamp).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })} · {kind(p)}</p>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                          {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" className="h-20 w-full rounded object-cover" /> : <div className="h-20 rounded bg-[#F1EFE8]" />}
-                          <p className="line-clamp-2 font-semibold">{p.caption || kind(p)}</p>
-                          <div className="flex justify-between"><span className="text-muted">Engagement</span><b>{fmt(interactions(p))}</b></div>
-                          <div className="flex justify-between"><span className="text-muted">Reach</span><b>{p.reach == null ? "n/a" : fmt(p.reach)}</b></div>
+                          {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" className="aspect-[4/5] w-full rounded-lg object-cover" /> : <div className="aspect-[4/5] rounded-lg bg-[#F1EFE8]" />}
+                          <p className="line-clamp-2">{p.caption}</p>
+                          {[["Likes", p.likes], ["Comments", p.comments], ["Saves", p.saved], ["Shares", p.shares], ["Reach", p.reach], ["Views", p.views], ["Engagement", interactions(p)]].map(([k, v]) => (
+                            <div key={k as string} className="flex justify-between border-b border-[#F4F2EC] py-0.5"><span className="text-muted">{k}</span><b>{v == null ? "n/a" : fmt(v as number)}</b></div>
+                          ))}
+                          <div className="flex justify-between"><span className="text-muted">Engagement rate</span><b>{p.reach ? `${((interactions(p) / p.reach) * 100).toFixed(1)}%` : "n/a"}</b></div>
                         </a>
                       ))}
                     </div>
@@ -276,6 +318,80 @@ export default function ReportsPage() {
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+function ChartCard({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-border p-4">
+      <div className="mb-3 flex flex-wrap items-baseline gap-2"><p className="text-sm font-semibold" style={{ fontFamily: "var(--font-display)" }}>{title}</p><div className="flex-1" />{note && <p className="text-[11px] font-semibold" style={{ color: "#E0433A" }}>{note}</p>}</div>
+      {children}
+    </div>
+  );
+}
+
+function axisTicks(rows: DayRow[]) {
+  const step = Math.max(1, Math.ceil(rows.length / 8));
+  return rows.map((r, i) => (i % step === 0 ? short(r.date) : ""));
+}
+
+function Combo({ rows }: { rows: DayRow[] }) {
+  const W = 700, H = 200, pad = 28;
+  const mp = Math.max(1, ...rows.map((r) => r.posts)), me = Math.max(1, ...rows.map((r) => r.eng));
+  const bw = (W - pad * 2) / rows.length;
+  const x = (i: number) => pad + i * bw + bw / 2;
+  const line = rows.map((r, i) => `${i ? "L" : "M"}${x(i)},${H - pad - (r.eng / me) * (H - pad * 2)}`).join(" ");
+  const ticks = axisTicks(rows);
+  return (
+    <div className="overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-52 w-full min-w-[520px]" aria-label="Posts and engagement by day">
+        {[0, 0.5, 1].map((f) => <g key={f}><line x1={pad} x2={W - pad} y1={H - pad - f * (H - pad * 2)} y2={H - pad - f * (H - pad * 2)} stroke="#EEE" /><text x={4} y={H - pad - f * (H - pad * 2) + 3} fontSize="9" fill="#888">{Math.round(mp * f)}</text><text x={W - 4} textAnchor="end" y={H - pad - f * (H - pad * 2) + 3} fontSize="9" fill="#888">{fmt(Math.round(me * f))}</text></g>)}
+        <path d={`${line} L${x(rows.length - 1)},${H - pad} L${x(0)},${H - pad}Z`} fill="#FFF3B0" opacity="0.7" />
+        {rows.map((r, i) => <rect key={r.date} x={x(i) - bw * 0.3} width={bw * 0.6} y={H - pad - (r.posts / mp) * (H - pad * 2)} height={(r.posts / mp) * (H - pad * 2)} fill="#0E0E0E" rx="2"><title>{`${short(r.date)}: ${r.posts} posts, ${r.eng} engagements`}</title></rect>)}
+        <path d={line} fill="none" stroke="#E0B800" strokeWidth="2.5" />
+        {ticks.map((t, i) => t && <text key={i} x={x(i)} y={H - 8} fontSize="9" textAnchor="middle" fill="#888">{t}</text>)}
+      </svg>
+      <div className="flex gap-4 text-[11px] text-muted"><span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-[#0E0E0E]" />Posts published (left)</span><span><i className="mr-1 inline-block h-2 w-2 rounded-sm" style={{ background: "#E0B800" }} />Engagement received (right)</span></div>
+    </div>
+  );
+}
+
+function Stacked({ rows }: { rows: DayRow[] }) {
+  const W = 700, H = 200, pad = 24;
+  const keys: Array<[keyof DayRow, string, string]> = [["likes", "Likes", "#0E0E0E"], ["comments", "Comments", "#FFD701"], ["saved", "Saves", "#B8B4A8"], ["shares", "Shares", "#E9A23B"]];
+  const max = Math.max(1, ...rows.map((r) => r.likes + r.comments + r.saved + r.shares));
+  const bw = (W - pad * 2) / rows.length;
+  const ticks = axisTicks(rows);
+  return (
+    <div className="overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-52 w-full min-w-[480px]" aria-label="Engagement actions by day">
+        {rows.map((r, i) => {
+          let y = H - pad;
+          return <g key={r.date}>{keys.map(([k, , c]) => { const h = ((r[k] as number) / max) * (H - pad * 2); y -= h; return <rect key={k as string} x={pad + i * bw + bw * 0.2} width={bw * 0.6} y={y} height={h} fill={c}><title>{`${short(r.date)} ${k}: ${r[k]}`}</title></rect>; })}</g>;
+        })}
+        {ticks.map((t, i) => t && <text key={i} x={pad + i * bw + bw / 2} y={H - 6} fontSize="9" textAnchor="middle" fill="#888">{t}</text>)}
+      </svg>
+      <div className="flex flex-wrap gap-3 text-[11px] text-muted">{keys.map(([, l, c]) => <span key={l}><i className="mr-1 inline-block h-2 w-2 rounded-sm" style={{ background: c }} />{l}</span>)}</div>
+    </div>
+  );
+}
+
+function Overlay({ a, b, labels }: { a: number[]; b: number[]; labels: string[] }) {
+  const W = 700, H = 200, pad = 24;
+  const max = Math.max(1, ...a, ...b);
+  const n = Math.max(a.length, 2);
+  const path = (v: number[]) => v.map((y, i) => `${i ? "L" : "M"}${pad + (i / (n - 1)) * (W - pad * 2)},${H - pad - (y / max) * (H - pad * 2)}`).join(" ");
+  const step = Math.max(1, Math.ceil(labels.length / 8));
+  return (
+    <div className="overflow-x-auto">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-52 w-full min-w-[480px]" aria-label="Reach comparison">
+        {b.length > 0 && <path d={path(b.slice(0, n))} fill="none" stroke="#B8B4A8" strokeWidth="2" strokeDasharray="5 4" />}
+        <path d={`${path(a)} L${W - pad},${H - pad} L${pad},${H - pad}Z`} fill="#FFF3B0" opacity="0.6" />
+        <path d={path(a)} fill="none" stroke="#0E0E0E" strokeWidth="2.5" />
+        {labels.map((t, i) => i % step === 0 && <text key={i} x={pad + (i / (n - 1)) * (W - pad * 2)} y={H - 6} fontSize="9" textAnchor="middle" fill="#888">{t}</text>)}
+      </svg>
+      <div className="flex gap-4 text-[11px] text-muted"><span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-[#0E0E0E]" />This period</span><span><i className="mr-1 inline-block h-2 w-2 rounded-sm bg-[#B8B4A8]" />Period before</span></div>
     </div>
   );
 }
