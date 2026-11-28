@@ -269,59 +269,71 @@ export default function SchedulePage() {
 
       <div className="flex flex-wrap gap-6 items-start">
         <section className="panel flex flex-col gap-4 rounded-2xl p-5" style={{ flex: "999 1 420px", minWidth: 0 }}>
-          <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#444]">
-            Client account
-            <select value={accountId} onChange={(e) => { setAccountId(e.target.value); writeClient(e.target.value); }} className={field}>
-              {accounts.map((a) => (
-                <option key={a.id} value={a.id}>@{a.username}</option>
-              ))}
-            </select>
-          </label>
-
-          <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1.5 text-xs font-semibold text-[#444]">Post to</legend>
-            <div className="flex flex-wrap items-center gap-2">
-              <IconToggle id="instagram" title="Instagram" on={toInstagram} onClick={() => setToInstagram((v) => !v)} />
-              <IconToggle id="facebook" title="Facebook Page" on={toFacebook} onClick={() => setToFacebook((v) => !v)} />
-              {channels
-                .filter((c) => !c.instagramAccountId || c.instagramAccountId === accountId)
-                .map((c) => (
-                  <IconToggle
-                    key={c.id}
-                    id={c.platform === "tiktok" ? "tiktok" : "youtube"}
-                    title={kind === "REEL" ? `${c.platform === "tiktok" ? "TikTok" : "YouTube"}: ${c.name}` : "Needs a video"}
-                    disabled={kind !== "REEL"}
-                    on={kind === "REEL" && chosenChannels.includes(c.id)}
-                    onClick={() => setChosenChannels((list) => (list.includes(c.id) ? list.filter((x) => x !== c.id) : [...list, c.id]))}
-                  />
-                ))}
-              <span className="mx-1 h-8 w-px bg-border" aria-hidden />
-              {PLATFORM_ORDER.filter((id) => !PLATFORMS[id].live).map((id) => (
-                <span key={id} title={`${PLATFORMS[id].name}: coming soon`} className="flex h-10 w-10 items-center justify-center rounded-xl border border-dashed border-border opacity-35 grayscale">
-                  <PlatformIcon id={id} size={22} />
-                </span>
-              ))}
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-[#444]">Post to</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <IconToggle id="instagram" title="Instagram" on={toInstagram} onClick={() => setToInstagram((v) => !v)} />
+                <IconToggle id="facebook" title="Facebook Page" on={toFacebook} onClick={() => setToFacebook((v) => !v)} />
+                {channels
+                  .filter((c) => !c.instagramAccountId || c.instagramAccountId === accountId)
+                  .map((c) => (
+                    <IconToggle
+                      key={c.id}
+                      id={c.platform === "tiktok" ? "tiktok" : "youtube"}
+                      title={kind === "REEL" ? `${c.platform === "tiktok" ? "TikTok" : "YouTube"}: ${c.name}` : "Needs a video"}
+                      disabled={kind !== "REEL"}
+                      on={kind === "REEL" && chosenChannels.includes(c.id)}
+                      onClick={() => setChosenChannels((list) => (list.includes(c.id) ? list.filter((x) => x !== c.id) : [...list, c.id]))}
+                    />
+                  ))}
+                <span title={PLATFORM_ORDER.filter((id) => !PLATFORMS[id].live).map((id) => PLATFORMS[id].name).join(", ") + ": coming soon"} className="px-1 text-xs font-semibold text-muted">+{PLATFORM_ORDER.filter((id) => !PLATFORMS[id].live).length} soon</span>
+              </div>
             </div>
-          </fieldset>
-
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Post type">
-            {(["IMAGE", "REEL"] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setKind(k)}
-                aria-pressed={kind === k}
-                className="rounded-xl px-4 py-3 text-sm font-semibold border border-border"
-                style={kind === k ? { background: BLACK, color: YELLOW } : undefined}
-              >
-                {k === "IMAGE" ? "Photo or carousel" : "Reel or video"}
-              </button>
-            ))}
+            <div>
+              <p className="mb-1.5 text-xs font-semibold text-[#444]">Format</p>
+              <div className="flex rounded-xl bg-[#F1EFE8] p-0.5" role="group" aria-label="Post type">
+                {([["IMAGE", "Post"], ["IMAGE", "Carousel"], ["REEL", "Reel"], ["STORY", "Story"]] as const).map(([k, l]) => (
+                  <button
+                    key={l}
+                    type="button"
+                    disabled={k === "STORY"}
+                    title={k === "STORY" ? "Stories: coming soon" : l === "Carousel" ? "Add 2 to 10 images" : undefined}
+                    onClick={() => k !== "STORY" && setKind(k)}
+                    aria-pressed={kind === k && (l !== "Carousel" || uploads.length > 1) && (l !== "Post" || uploads.length <= 1)}
+                    className="h-8 rounded-lg px-3 text-[12.5px] font-semibold disabled:opacity-40"
+                    style={kind === k && (k === "REEL" || (l === "Carousel" ? uploads.length > 1 : uploads.length <= 1)) ? { background: "#fff", boxShadow: "0 1px 2px #0002" } : { color: "#555" }}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {kind === "IMAGE" && (
+              <div>
+                <p className="mb-1.5 text-xs font-semibold text-[#444]">Size</p>
+                <select value={sizeId} onChange={(e) => setSizeId(e.target.value as SizeId)} className="h-9 rounded-xl border border-border bg-white px-3 text-[13px] font-medium">
+                  {SIZES.map((sz) => (
+                    <option key={sz.id} value={sz.id}>{sz.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {accounts.length > 1 && (
+              <div className="ml-auto">
+                <p className="mb-1.5 text-xs font-semibold text-[#444]">Client</p>
+                <select value={accountId} onChange={(e) => { setAccountId(e.target.value); writeClient(e.target.value); }} className="h-9 rounded-xl border border-border bg-white px-3 text-[13px] font-medium">
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>@{a.username}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {kind === "REEL" && (
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-semibold">Video (MP4 or MOV, 9:16 works best, under 300 MB)</span>
+              <span className="text-xs font-semibold text-[#444]">Video (MP4 or MOV, 9:16 works best, under 300 MB)</span>
               {video ? (
                 <div className="flex items-center gap-3">
                   <video src={video.preview} className="h-32 rounded-lg" muted controls />
@@ -333,7 +345,7 @@ export default function SchedulePage() {
                   <input type="file" accept="video/mp4,video/quicktime" className="sr-only" onChange={(e) => { void onVideo(e.target.files?.[0]); e.target.value = ""; }} />
                 </label>
               )}
-              <span className="text-sm font-semibold pt-2">Cover (optional, cropped to 9:16)</span>
+              <span className="pt-2 text-xs font-semibold text-[#444]">Cover (optional, cropped to 9:16)</span>
               {cover ? (
                 <div className="flex items-center gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -351,19 +363,7 @@ export default function SchedulePage() {
           )}
 
           {kind === "IMAGE" && (
-          <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#444]">
-            Image size (applied as you add images)
-            <select value={sizeId} onChange={(e) => setSizeId(e.target.value as SizeId)} className={field}>
-              {SIZES.map((sz) => (
-                <option key={sz.id} value={sz.id}>{sz.label}</option>
-              ))}
-            </select>
-          </label>
-          )}
-
-          {kind === "IMAGE" && (
           <div className="flex flex-col gap-2">
-            <span className="text-sm font-semibold">Images (1 for a post, 2 to 10 for a carousel)</span>
             <div className="flex flex-wrap gap-3">
               {uploads.map((u, i) => (
                 <div key={u.id} className="relative">
@@ -381,8 +381,8 @@ export default function SchedulePage() {
                 </div>
               ))}
               {uploads.length < 10 && (
-                <label className="h-24 w-24 rounded-lg border-2 border-dashed border-border flex items-center justify-center text-xs text-muted cursor-pointer text-center px-1">
-                  {busy ? "Uploading…" : "Add images"}
+                <label className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-[1.5px] border-dashed border-[#D6D3C9] bg-[#FCFBF8] px-4 text-center text-[12.5px] text-muted ${uploads.length ? "h-24 w-24" : "w-full py-6"}`}>
+                  {busy ? "Uploading…" : uploads.length ? "Add more" : <><b className="text-foreground">Drop images here or click to browse</b><span>1 image for a post, 2 to 10 for a carousel. Choose Reel above for a video.</span></>}
                   <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => { void onFiles(e.target.files); e.target.value = ""; }} />
                 </label>
               )}
@@ -393,7 +393,7 @@ export default function SchedulePage() {
 
           <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#444]">
             Caption
-            <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={6} maxLength={2200} className={field} placeholder="Write the caption, hashtags included" />
+            <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={4} maxLength={2200} className={field} placeholder="Write the caption, hashtags included" />
             {(() => {
               const hit = autoKeywords.find((k) => new RegExp(`\\b${k.keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(caption));
               return (
@@ -403,30 +403,26 @@ export default function SchedulePage() {
                 </p>
               );
             })()}
-            <span className="text-xs font-normal text-muted">{caption.length} / 2200</span>
-          </label>
-
-          <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#444]">
-            Publish at (your time)
-            <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className={field} />
           </label>
 
           {error && <p className="text-sm" style={{ color: "#B42318" }}>{error}</p>}
           {notice && <p className="text-sm" style={{ color: "#1F5A1F" }}>{notice}</p>}
 
-          <div className="flex flex-wrap gap-3">
-            <button type="button" disabled={busy} onClick={() => void schedule(false)} className="rounded-xl px-5 py-3 text-sm font-bold disabled:opacity-50" style={{ background: YELLOW, color: BLACK }}>
-              Schedule post
-            </button>
-            <button type="button" disabled={busy} onClick={() => void schedule(true)} className="rounded-xl px-5 py-3 text-sm font-semibold border border-border bg-surface disabled:opacity-50">
+          <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+            <input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} aria-label="Publish at" className="h-9 rounded-xl border border-border bg-white px-3 text-[13px] font-medium" />
+            <span className="text-xs text-muted">Lagos time</span>
+            <div className="flex-1" />
+            <button type="button" disabled={busy} onClick={() => void schedule(true)} className="h-9 rounded-xl border border-border bg-white px-4 text-[13px] font-semibold disabled:opacity-50">
               Publish now
+            </button>
+            <button type="button" disabled={busy} onClick={() => void schedule(false)} className="h-9 rounded-xl px-4 text-[13px] font-semibold text-white disabled:opacity-50" style={{ background: BLACK }}>
+              Schedule post
             </button>
           </div>
         </section>
 
         <aside className="flex flex-col items-center gap-2" style={{ flex: "1 1 280px", maxWidth: 320 }}>
-          <span className="text-xs font-bold tracking-wider text-muted">PREVIEW</span>
-          <div className="w-full rounded-[36px] p-3" style={{ background: BLACK }}>
+                    <div className="w-full rounded-[36px] p-3" style={{ background: BLACK }}>
             <div className="rounded-[26px] bg-white overflow-hidden text-[#121212]">
               <div className="flex items-center gap-2 px-3 py-3">
                 <span className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: YELLOW }}>
@@ -434,7 +430,7 @@ export default function SchedulePage() {
                 </span>
                 <span className="text-sm font-semibold">{account?.username ?? "account"}</span>
               </div>
-              <div className="aspect-square bg-[#F0EEE6] flex items-center justify-center">
+              <div className="aspect-[4/5] flex items-center justify-center" style={{ background: "linear-gradient(135deg,#FFE97A,#FFD701 55%,#F4B400)" }}>
                 {kind === "REEL" && cover ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={cover.preview} alt="Cover preview" className="h-full w-full object-cover" />
@@ -444,7 +440,7 @@ export default function SchedulePage() {
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={uploads[0].preview} alt="Post preview" className="h-full w-full object-cover" />
                 ) : (
-                  <span className="text-xs text-[#5A5A5A]">Your image appears here</span>
+                  <span className="text-lg font-semibold text-[#5a4800]" style={{ fontFamily: "var(--font-display)" }}>Your image</span>
                 )}
               </div>
               {uploads.length > 1 && <p className="text-center text-xs text-[#5A5A5A] pt-2">1 of {uploads.length}</p>}
