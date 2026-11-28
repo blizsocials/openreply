@@ -131,3 +131,6 @@ h1, h2, h3 {
     background: #ffffff;
   }
 }
+
+/* Blizsocials: the app shell scrolls inside <main>; never let the browser page itself scroll past it. */
+html:has(.bliz-shell), html:has(.bliz-shell) body { height: 100%; overflow: hidden; }

@@ -23,7 +23,7 @@ export default function DashboardShell({
   return (
     // h-dvh, not h-screen: on mobile browsers the URL bar eats into 100vh, which
     // would push the composer and pagination controls below the fold.
-    <div className="flex h-dvh overflow-hidden bg-background">
+    <div className="bliz-shell relative flex h-dvh overflow-hidden bg-background">
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -40,7 +40,7 @@ export default function DashboardShell({
         {/* overflow-x-hidden: enabling vertical scrolling makes the browser
             allow horizontal scrolling too, which lets a wide child drag the
             whole page sideways on a phone. */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="relative flex-1 overflow-y-auto overflow-x-hidden">
           <div className="mx-auto max-w-7xl px-4 pb-24 pt-5 sm:pt-6 lg:px-8 lg:pb-8">
             {children}
           </div>
