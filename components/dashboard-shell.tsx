@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Sidebar from "@/components/sidebar";
 import TopBar from "@/components/top-bar";
+import MobileTabBar from "@/components/mobile-tab-bar";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -40,11 +41,12 @@ export default function DashboardShell({
             allow horizontal scrolling too, which lets a wide child drag the
             whole page sideways on a phone. */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="px-4 lg:px-8 py-5 sm:py-6 max-w-7xl mx-auto">
+          <div className="mx-auto max-w-7xl px-4 pb-24 pt-5 sm:pt-6 lg:px-8 lg:pb-8">
             {children}
           </div>
         </main>
       </div>
+      <MobileTabBar onMore={() => setSidebarOpen(true)} />
     </div>
   );
 }

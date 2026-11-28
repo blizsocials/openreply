@@ -180,7 +180,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
   const [requireFollow, setRequireFollow] = useState(false);
   const [followPromptMessage, setFollowPromptMessage] = useState("");
   const [followPromptButtonLabel, setFollowPromptButtonLabel] =
-    useState("i'm following");
+    useState("I'm following, send it");
   const [followUpEnabled, setFollowUpEnabled] = useState(false);
   const [followUpMessage, setFollowUpMessage] = useState("");
   const [followUpDelayMinutes, setFollowUpDelayMinutes] = useState(0);
@@ -288,7 +288,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
         setRequireFollow(c.requireFollow ?? false);
         setFollowPromptMessage(c.followPromptMessage ?? "");
         setFollowPromptButtonLabel(
-          c.followPromptButtonLabel ?? "i'm following"
+          c.followPromptButtonLabel ?? "I'm following, send it"
         );
         setFollowUpEnabled(c.followUpEnabled ?? false);
         setFollowUpMessage(c.followUpMessage ?? "");
@@ -428,7 +428,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
       requireFollow,
       followPromptMessage: requireFollow ? followPromptMessage.trim() : "",
       followPromptButtonLabel: requireFollow
-        ? followPromptButtonLabel.trim() || "i'm following"
+        ? followPromptButtonLabel.trim() || "I'm following, send it"
         : "",
       followUpEnabled,
       followUpMessage: followUpEnabled ? followUpMessage.trim() : "",
@@ -858,7 +858,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                 <textarea
                   value={followPromptMessage}
                   onChange={(e) => setFollowPromptMessage(e.target.value)}
-                  placeholder={t("quick favor before i send your link. i don't make any money from this, it's free. if you want to support me, just don't unfollow after, and star the repo on github if it helps you. tap the button once you're following and i'll send it over")}
+                  placeholder={t("Quick one before I send your link: please follow this page so you don't miss what's next. Tap the button once you're following and it's yours 💛")}
                   rows={3}
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none resize-none"
                   maxLength={1000}
@@ -866,7 +866,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
                 <input
                   value={followPromptButtonLabel}
                   onChange={(e) => setFollowPromptButtonLabel(e.target.value)}
-                  placeholder={t("i'm following")}
+                  placeholder={t("I'm following, send it")}
                   className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-zinc-500 focus:border-accent/40 focus:outline-none"
                   maxLength={20}
                 />
@@ -1022,7 +1022,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
             secondLinkButtonLabel={secondaryButtonLabel || "Open link"}
             requireFollow={requireFollow}
             followPromptMessage={followPromptMessage}
-            followPromptButtonLabel={followPromptButtonLabel || "i'm following"}
+            followPromptButtonLabel={followPromptButtonLabel || "I'm following, send it"}
             followUpEnabled={followUpEnabled}
             followUpMessage={followUpMessage}
             followUpDelayMinutes={followUpDelayMinutes}

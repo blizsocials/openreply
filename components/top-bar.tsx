@@ -10,13 +10,29 @@ import type { StaticMessageKey } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { usePathname } from "next/navigation";
 
+const subtitles: Record<string, string> = {
+  "/dashboard": "How every client is doing, in one place",
+  "/overview": "Followers, reach and posts for each client",
+  "/schedule": "Plan and publish to every platform at once",
+  "/inbox": "Every DM and comment, answered by the right person",
+  "/campaigns": "Comment a keyword, get the DM. Running 24/7",
+  "/logs": "Every automated DM, and why any failed",
+  "/clients": "Who is connected, and what each connection can do",
+  "/settings": "Team, workspace and preferences",
+  "/diagnostics": "Check that comments and DMs are flowing",
+};
+
 const plainTitles: Record<string, string> = {
+  "/logs": "DM logs",
+  "/inbox": "Inbox",
+  "/settings": "Settings",
+  "/diagnostics": "Diagnostics",
   "/dashboard": "Results",
   "/campaigns": "Automations",
   "/campaigns/new": "New automation",
   "/automations": "Automations",
   "/automations/new": "New automation",
-  "/overview": "Results",
+  "/overview": "Metrics",
   "/clients": "Clients",
   "/schedule": "Schedule",
 };
@@ -43,7 +59,6 @@ interface TopBarProps {
 
 export default function TopBar({
   onMenuClick,
-  instagramUsername,
   instagramAccountCount,
 }: TopBarProps) {
   const { t } = useI18n();
@@ -64,31 +79,28 @@ export default function TopBar({
         paddingTop: "env(safe-area-inset-top)",
       }}
     >
-      <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+      <div className="flex min-w-0 items-center gap-3">
         <button
           onClick={onMenuClick}
-          className="lg:hidden shrink-0 min-h-11 min-w-11 px-3 rounded border border-border text-sm text-muted hover:text-foreground"
+          className="lg:hidden flex shrink-0 items-center"
           aria-label={t("Toggle sidebar")}
         >
-          {t("Menu")}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/bliz-app-logo.png" alt="" width={32} height={32} className="rounded-lg" style={{ width: 32, height: 32 }} />
         </button>
-        <h1 className="truncate text-base font-semibold sm:text-lg">{plainTitles[pathname] ?? t(title)}</h1>
+        <div className="min-w-0">
+          <h1 className="truncate text-base font-semibold sm:text-lg" style={{ fontFamily: "var(--font-display)" }}>{plainTitles[pathname] ?? t(title)}</h1>
+          {subtitles[pathname] && <p className="hidden truncate text-xs text-muted sm:block">{subtitles[pathname]}</p>}
+        </div>
       </div>
 
-      {instagramAccountCount > 0 ? (
-        <p className="shrink-0 truncate text-sm text-muted">
-          {instagramAccountCount > 1
-            ? t("{count} accounts", { count: instagramAccountCount })
-            : `@${instagramUsername}`}
-        </p>
-      ) : (
+      {instagramAccountCount === 0 && (
         <a
-          href="/api/instagram/connect"
-          className="shrink-0 whitespace-nowrap text-sm font-medium px-3 py-1.5 rounded bg-accent text-white hover:bg-accent-hover"
+          href="/api/facebook/connect"
+          className="shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-semibold"
+          style={{ background: "#0E0E0E", color: "#FFD701" }}
         >
-          {/* Full label needs more room than a 360px header has to spare. */}
-          <span className="sm:hidden">{t("Connect")}</span>
-          <span className="hidden sm:inline">{t("Connect Instagram")}</span>
+          Connect clients
         </a>
       )}
     </header>

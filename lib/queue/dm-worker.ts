@@ -685,7 +685,7 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
         const promptText = renderMessageWithoutLink({
           message:
             automation.followPromptMessage ||
-            "quick favor before i send your link. i don't make any money from this, it's free. if you want to support me, just don't unfollow after, and star the repo on github if it helps you. tap the button once you're following and i'll send it over",
+            "Quick one before I send your link: please follow this page so you don't miss what's next. Tap the button once you're following and it's yours 💛",
           commenterName,
         });
         await sendPrivateReplyWithButton({
@@ -693,7 +693,7 @@ async function processComment(job: Job<ProcessCommentJob>): Promise<void> {
           instagramAccountId: automation.instagramAccount.instagramId,
           commentId: commentId,
           text: promptText,
-          buttonTitle: automation.followPromptButtonLabel || "i'm following",
+          buttonTitle: automation.followPromptButtonLabel || "I'm following, send it",
           payload: `followcheck:${automation.id}`,
           postId: mediaId,
         });
@@ -1054,7 +1054,7 @@ async function processPostback(job: Job<ProcessPostbackJob>): Promise<void> {
       const promptText = renderMessageWithoutLink({
         message:
           automation.followPromptMessage ||
-          "quick favor before i send your link. i don't make any money from this, it's free. if you want to support me, just don't unfollow after, and star the repo on github if it helps you. tap the button once you're following and i'll send it over",
+          "Quick one before I send your link: please follow this page so you don't miss what's next. Tap the button once you're following and it's yours 💛",
         commenterName,
       });
       try {
@@ -1067,7 +1067,7 @@ async function processPostback(job: Job<ProcessPostbackJob>): Promise<void> {
               userId: userId,
               text: promptText,
               buttonTitle:
-                automation.followPromptButtonLabel || "i'm following",
+                automation.followPromptButtonLabel || "I'm following, send it",
               payload: `followcheck:${automation.id}`,
             }),
         });

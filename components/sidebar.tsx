@@ -3,24 +3,36 @@
 /**
  * Sidebar Navigation
  *
- * Text-only nav with active state and workspace section.
+ * Grouped icon nav (Work / Manage), client switcher and workspace section.
  */
 
 import LanguageSwitcher from "@/components/language-switcher";
+import { NavIcon } from "@/components/nav-icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { onClientChange, readClient, writeClient } from "@/lib/client-selection";
 
-const navItems = [
-  { label: "Results", href: "/dashboard" },
-  { label: "Clients", href: "/clients" },
-  { label: "Automations", href: "/campaigns" },
-  { label: "Schedule", href: "/schedule" },
-  { label: "Inbox", href: "/inbox" },
-  { label: "DM Logs", href: "/logs" },
-  { label: "Settings", href: "/settings" },
-  { label: "Diagnostics", href: "/diagnostics" },
+const navGroups = [
+  {
+    title: "Work",
+    items: [
+      { label: "Results", href: "/dashboard", icon: "results" },
+      { label: "Metrics", href: "/overview", icon: "reports" },
+      { label: "Schedule", href: "/schedule", icon: "schedule" },
+      { label: "Inbox", href: "/inbox", icon: "inbox" },
+      { label: "Automations", href: "/campaigns", icon: "automations" },
+      { label: "DM logs", href: "/logs", icon: "logs" },
+    ],
+  },
+  {
+    title: "Manage",
+    items: [
+      { label: "Clients", href: "/clients", icon: "clients" },
+      { label: "Settings", href: "/settings", icon: "settings" },
+      { label: "Diagnostics", href: "/diagnostics", icon: "diagnostics" },
+    ],
+  },
 ] as const;
 
 interface SidebarProps {
@@ -99,15 +111,12 @@ export default function Sidebar({
         </div>
 
         <div className="px-4 pb-2">
-          <span className="block text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "#B8B8B8" }}>
-            Working on
-          </span>
           <div className="relative" id="client-switch">
             <button
               type="button"
               onClick={() => setSwitcherOpen((o) => !o)}
               aria-expanded={switcherOpen}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-white"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm text-white"
               style={{ background: "#1C1C1C", border: "1px solid #333333" }}
             >
               <ClientLogo url={client === "all" ? undefined : logos[client]} label={client === "all" ? "All" : clients.find((c) => c.id === client)?.username ?? "?"} size={32} />
@@ -139,40 +148,40 @@ export default function Sidebar({
           </div>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                aria-current={isActive ? "page" : undefined}
-                className={`
-                  block px-3 py-3 rounded-lg text-sm font-semibold
-                  ${
-                    isActive
-                      ? "text-[#0E0E0E]"
-                      : "text-white hover:bg-white/10"
-                  }
-                `}
-                style={isActive ? { background: "#FFD701" } : undefined}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto px-3 py-3">
+          {navGroups.map((group) => (
+            <div key={group.title} className="mb-3">
+              <p className="px-3 pb-1 pt-2 text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: "#7C7C7C" }}>{group.title}</p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={onClose}
+                      aria-current={isActive ? "page" : undefined}
+                      className={`flex h-9 items-center gap-2.5 rounded-lg px-3 text-[13.5px] ${isActive ? "font-semibold text-[#0E0E0E]" : "font-medium text-[#D0D0D0] hover:bg-white/10 hover:text-white"}`}
+                      style={isActive ? { background: "#FFD701" } : undefined}
+                    >
+                      <NavIcon name={item.icon} size={17} />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className="px-4 py-3">
           <a
             href="/api/facebook/connect"
             title="Pulls in every Instagram account linked to a Page in your Business Manager"
-            className="flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold"
-            style={{ background: "#1C1C1C", color: "#FFD701", border: "1px solid #333333" }}
+            className="flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-[12.5px] font-semibold"
+            style={{ color: "#FFD701", border: "1px solid #2A2A2A" }}
           >
-            <span aria-hidden>⟳</span> Add or refresh clients
+            <NavIcon name="refresh" size={14} /> Add or refresh clients
           </a>
           <p className="mt-3 text-xs truncate" style={{ color: "#B8B8B8" }}>{workspaceName}</p>
           <div className="mt-2 hidden"><LanguageSwitcher /></div>

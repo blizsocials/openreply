@@ -396,16 +396,16 @@ function DmScreen({
               <div className="max-w-[80%] overflow-hidden rounded-2xl rounded-bl-md bg-zinc-800">
                 <p className="whitespace-pre-wrap px-3 py-2 text-sm">
                   {followPromptMessage ||
-                    "quick favor before i send your link. i don't make any money from this, it's free. if you want to support me, just don't unfollow after, and star the repo on github if it helps you. tap the button once you're following and i'll send it over"}
+                    "Quick one before I send your link: please follow this page so you don't miss what's next. Tap the button once you're following and it's yours 💛"}
                 </p>
                 <div className="mx-1.5 mb-1.5 rounded-xl bg-zinc-700 px-4 py-1.5 text-center text-sm font-medium text-white">
-                  {followPromptButtonLabel || "i'm following"}
+                  {followPromptButtonLabel || "I'm following, send it"}
                 </div>
               </div>
             </div>
             <div className="flex justify-end">
               <div className="rounded-2xl rounded-br-md bg-accent px-3 py-2 text-sm">
-                {followPromptButtonLabel || "i'm following"}
+                {followPromptButtonLabel || "I'm following, send it"}
               </div>
             </div>
           </>
