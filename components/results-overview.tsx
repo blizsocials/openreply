@@ -27,18 +27,25 @@ export default function ResultsOverview({ accounts, range, dmsDelivered, dmsChan
   const [data, setData] = useState<Record<string, { a: Ov | null; b: Ov | null }>>({});
   const [loading, setLoading] = useState(true);
 
+  const ids = accounts.map((x) => x.id).join(",");
   useEffect(() => {
     let live = true;
-    void Promise.resolve().then(() => setLoading(true));
+    const list = ids ? ids.split(",") : [];
+    void Promise.resolve().then(() => { setLoading(true); setData({}); });
     const get = (id: string, r: { from: string; to: string }) =>
-      fetch(`/api/instagram/overview?instagramAccountId=${id}&since=${r.from}&until=${r.to}`).then((x) => x.json()).then((p) => (p.success ? (p.data as Ov) : null)).catch(() => null);
-    Promise.all(accounts.map(async (acc) => [acc.id, { a: await get(acc.id, cur), b: await get(acc.id, prev) }] as const)).then((rows) => {
-      if (!live) return;
-      setData(Object.fromEntries(rows));
-      setLoading(false);
-    });
+      fetch(`/api/instagram/overview?instagramAccountId=${id}&since=${r.from}&until=${r.to}`, { signal: AbortSignal.timeout(60_000) }).then((x) => x.json()).then((p) => (p.success ? (p.data as Ov) : null)).catch(() => null);
+    let left = list.length;
+    if (!left) void Promise.resolve().then(() => setLoading(false));
+    for (const id of list) {
+      Promise.all([get(id, cur), get(id, prev)]).then(([a, b]) => {
+        if (!live) return;
+        setData((d) => ({ ...d, [id]: { a, b } }));
+        left -= 1;
+        if (left === 0) setLoading(false);
+      });
+    }
     return () => { live = false; };
-  }, [accounts, cur, prev]);
+  }, [ids, cur, prev]);
 
   const rows = accounts.map((acc, i) => {
     const d = data[acc.id];
@@ -48,6 +55,7 @@ export default function ResultsOverview({ accounts, range, dmsDelivered, dmsChan
     return { acc, i, followers: a?.followers ?? 0, reach, prevReach, eng, prevEng: b?.totals.interactions ?? 0, posts: a?.totals.posts ?? 0, rate: reach ? (eng / reach) * 100 : 0, change: pct(reach, prevReach), a, b };
   }).sort((x, y) => y.reach - x.reach);
 
+  const none = Object.keys(data).length === 0;
   const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((s, r) => s + f(r), 0);
   const followers = sum((r) => r.followers);
   const gained = rows.reduce((s, r) => {
@@ -88,15 +96,15 @@ export default function ResultsOverview({ accounts, range, dmsDelivered, dmsChan
       </div>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <Card dark label="Followers" value={loading ? "…" : fmt(followers)} sub={loading ? "" : `${gained >= 0 ? "▲" : "▼"} ${fmt(Math.abs(gained))} this period`} up={gained >= 0} />
-        <Card label="Organic reach" value={loading ? "…" : fmt(sum((r) => r.reach))} change={loading ? null : pct(sum((r) => r.reach), sum((r) => r.prevReach))} />
-        <Card label="Engagements" value={loading ? "…" : fmt(sum((r) => r.eng))} change={loading ? null : pct(sum((r) => r.eng), sum((r) => r.prevEng))} />
+        <Card dark label="Followers" value={none ? "…" : fmt(followers)} sub={none ? "" : `${gained >= 0 ? "▲" : "▼"} ${fmt(Math.abs(gained))} this period`} up={gained >= 0} />
+        <Card label="Organic reach" value={none ? "…" : fmt(sum((r) => r.reach))} change={none ? null : pct(sum((r) => r.reach), sum((r) => r.prevReach))} />
+        <Card label="Engagements" value={none ? "…" : fmt(sum((r) => r.eng))} change={none ? null : pct(sum((r) => r.eng), sum((r) => r.prevEng))} />
         <Card label="DMs delivered by automations" value={fmt(dmsDelivered)} change={dmsChange} />
       </div>
 
       <div className="rounded-2xl border border-border bg-white">
         <div className="flex flex-wrap items-center gap-3 px-5 pt-4">
-          <h3 className="text-[15px] font-semibold" style={{ fontFamily: "var(--font-display)" }}>Organic reach by day</h3>
+          <h3 className="text-[15px] font-semibold" style={{ fontFamily: "var(--font-display)" }}>Organic reach by day</h3>{loading && <span className="text-[11px] text-muted">Loading {Object.keys(data).length} of {accounts.length} clients…</span>}
           <div className="flex-1" />
           <span className="flex gap-3 text-[11.5px] text-muted"><span className="flex items-center gap-1"><i className="inline-block h-2.5 w-2.5 rounded-sm bg-[#FFD701]" />This period</span><span className="flex items-center gap-1"><i className="inline-block h-2.5 w-2.5 rounded-sm bg-[#D9D6CC]" />Period before</span></span>
         </div>
@@ -130,11 +138,11 @@ export default function ResultsOverview({ accounts, range, dmsDelivered, dmsChan
                 return (
                   <tr key={r.acc.id} className="border-t border-[#F0EEE8]">
                     <td className="px-2 py-2.5"><span className="flex items-center gap-2"><span className="flex h-7 w-7 items-center justify-center rounded-full text-[9px] font-bold" style={{ background: bg, color: fg }}>{r.acc.username.slice(0, 2).toUpperCase()}</span><b>@{r.acc.username}</b></span></td>
-                    <td className="px-2 text-right">{loading ? "…" : fmt(r.followers)}</td>
-                    <td className="px-2 text-right">{loading ? "…" : fmt(r.reach)}</td>
-                    <td className="px-2 text-right">{loading ? "…" : `${r.rate.toFixed(1)}%`}</td>
-                    <td className="px-2 text-right">{loading ? "…" : r.posts}</td>
-                    <td className="px-2 text-right font-semibold" style={{ color: r.change == null ? "#999" : r.change < 0 ? "#E0433A" : "#1F9D55" }}>{loading || r.change == null ? "–" : `${r.change > 0 ? "+" : ""}${r.change}%`}</td>
+                    <td className="px-2 text-right">{data[r.acc.id] ? fmt(r.followers) : "…"}</td>
+                    <td className="px-2 text-right">{data[r.acc.id] ? fmt(r.reach) : "…"}</td>
+                    <td className="px-2 text-right">{data[r.acc.id] ? `${r.rate.toFixed(1)}%` : "…"}</td>
+                    <td className="px-2 text-right">{data[r.acc.id] ? r.posts : "…"}</td>
+                    <td className="px-2 text-right font-semibold" style={{ color: r.change == null ? "#999" : r.change < 0 ? "#E0433A" : "#1F9D55" }}>{!data[r.acc.id] || r.change == null ? "–" : `${r.change > 0 ? "+" : ""}${r.change}%`}</td>
                   </tr>
                 );
               })}

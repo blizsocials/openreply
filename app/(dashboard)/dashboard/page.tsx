@@ -182,7 +182,7 @@ export default function DashboardPage() {
                   type="button"
                   aria-pressed={active}
                   onClick={() => changeRange(r.days)}
-                  className={`min-h-11 flex-1 px-4 text-sm font-medium sm:flex-none ${
+                  className={`h-9 flex-1 px-4 text-[13px] font-semibold sm:flex-none ${
                     active ? "bg-accent text-white" : "text-foreground hover:bg-surface-hover"
                   }`}
                 >
@@ -204,7 +204,7 @@ export default function DashboardPage() {
               type="button"
               disabled={!data}
               onClick={() => data && downloadCsv(data)}
-              className="min-h-11 rounded-xl border border-border bg-surface px-4 text-sm font-medium text-foreground hover:bg-surface-hover disabled:opacity-50"
+              className="h-9 rounded-xl border border-border bg-surface px-3 text-[13px] font-semibold text-foreground hover:bg-surface-hover disabled:opacity-50"
             >
               Download CSV
             </button>
@@ -212,10 +212,10 @@ export default function DashboardPage() {
               type="button"
               disabled={!data}
               onClick={() => window.print()}
-              className="min-h-11 rounded-xl px-4 text-sm font-semibold text-black disabled:opacity-50"
-              style={{ background: "#FFD700", border: "1px solid #0E0E0E" }}
+              className="h-9 rounded-xl px-3 text-[13px] font-semibold text-white disabled:opacity-50"
+              style={{ background: "#0E0E0E" }}
             >
-              Print or save as PDF
+              Save as PDF
             </button>
           </div>
         </div>
