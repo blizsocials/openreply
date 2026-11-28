@@ -11,9 +11,6 @@ export const runtime = "nodejs";
 // the Clients page.
 export async function GET(request: NextRequest) {
   const base = getBaseUrl();
-  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-    return NextResponse.redirect(`${base}/clients?youtube=not_configured`);
-  }
   const linkToken = request.nextUrl.searchParams.get("link");
   let workspaceId: string | null = null;
   if (linkToken) {
@@ -26,6 +23,10 @@ export async function GET(request: NextRequest) {
     workspaceId = ctx.workspaceId;
   }
   if (!workspaceId) return NextResponse.redirect(`${base}/login`);
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    if (linkToken) return NextResponse.redirect(`${base}/connect/${linkToken}?youtube=not_configured`);
+    return NextResponse.redirect(`${base}/clients?youtube=not_configured`);
+  }
   const state = createConnectState(workspaceId, linkToken ?? undefined);
   return NextResponse.redirect(youtubeAuthUrl(`${base}/api/connect/youtube/callback`, state));
 }

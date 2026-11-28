@@ -21,6 +21,7 @@ const MESSAGES: Record<string, string> = {
   connected: "Connected. Thank you!",
   denied: "You cancelled the connection. You can try again any time.",
   no_channel: "That Google account has no YouTube channel. Sign in with the account that owns or manages the channel.",
+  not_configured: "This connection is unavailable right now. Contact your Blizsocials manager for help.",
   failed: "Something went wrong. Please try again, or tell your Blizsocials manager.",
   invalid: "That attempt timed out. Please tap Connect again.",
   expired: "This link has expired. Ask your Blizsocials manager for a new one.",
@@ -62,9 +63,9 @@ export default async function ConnectPage({
           <section style={{ background: "#fff", borderRadius: 20, padding: 28, display: "flex", flexDirection: "column", gap: 16 }}>
             <h1 style={{ margin: 0, fontSize: 24, fontFamily: "var(--font-poppins), sans-serif" }}>Hi {link.clientName}, connect your accounts</h1>
             <p style={{ margin: 0, color: "#3E3E3E", lineHeight: 1.6 }}>
-              This lets the Blizsocials team post and report for you. You sign in to each platform yourself, so we never see your passwords, and you can remove access at any time from that platform&apos;s settings.
+              This lets the Blizsocials team use the permissions you approve on each platform. You sign in to each platform yourself, so we never see your passwords, and you can remove access at any time from that platform&apos;s settings.
             </p>
-            {status && MESSAGES[status] && (
+            {status && Object.hasOwn(MESSAGES, status) && (
               <p role="status" style={{ margin: 0, padding: "12px 14px", borderRadius: 12, background: status === "connected" ? "#DFF3DF" : "#FFF6BF", fontWeight: 600 }}>{MESSAGES[status]}</p>
             )}
             {PLATFORMS.map((p) => {
@@ -75,7 +76,7 @@ export default async function ConnectPage({
                   <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 2 }}>
                     <span style={{ fontWeight: 700 }}>{p.name}</span>
                     <span style={{ fontSize: 13, color: "#5A5A5A" }}>
-                      {done.length ? `Connected: ${done.map((d) => d.name).join(", ")}` : p.ready ? p.note : "We are getting this ready for you."}
+                      {done.length ? `Connected: ${done.map((d) => d.name).join(", ")}` : p.ready ? p.note : "This platform cannot be connected from this page yet."}
                     </span>
                   </div>
                   {p.ready ? (
@@ -86,12 +87,12 @@ export default async function ConnectPage({
                       {done.length ? "Connect another" : "Connect"}
                     </a>
                   ) : (
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#6B5A00", background: "#FFF6BF", borderRadius: 999, padding: "6px 12px" }}>Coming soon</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#6B5A00", background: "#FFF6BF", borderRadius: 999, padding: "6px 12px" }}>Unavailable</span>
                   )}
                 </div>
               );
             })}
-            <p style={{ margin: 0, fontSize: 12, color: "#5A5A5A" }}>Link valid until {link.expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.</p>
+            <p style={{ margin: 0, fontSize: 12, color: "#5A5A5A" }}>Link valid until {link.expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Lagos" })}.</p>
           </section>
         )}
       </div>

@@ -7,13 +7,10 @@ import { isPublicDemoHost } from "@/lib/env";
 const GITHUB_URL = "https://github.com/diwenne/openreply";
 const SETUP_DOCS_URL = `${GITHUB_URL}/blob/main/docs/setup.md`;
 
-export async function generateMetadata() {
-  const { t } = await getI18n();
-  return {
-    title: t("Login - OpenReply"),
-    description: t("Sign in to manage Instagram comment-to-DM campaigns."),
-  };
-}
+export const metadata = {
+  title: "Team sign-in | Blizsocials Automations",
+  description: "Sign in to the Blizsocials team workspace.",
+};
 
 export default async function LoginPage({
   searchParams,
@@ -74,12 +71,12 @@ export default async function LoginPage({
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-semibold text-foreground">
-            OpenReply
+            Blizsocials Automations
           </h1>
           <p className="text-muted text-sm leading-relaxed mt-2">
             {selectedTemplate
               ? t("Sign in to use the {name} template.", { name: selectedTemplate.title })
-              : t("Sign in by email, then connect your Instagram professional account.")}
+              : "Enter your work email to receive a secure sign-in link."}
           </p>
         </div>
 
