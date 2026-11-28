@@ -113,9 +113,29 @@ export async function getPageReport(composite: string, since: string, until: str
     posts.push(...(r.data ?? []));
     next = r.paging?.next ?? null;
   }
+  // Reach and views per post need read_insights on the Page token. Try it; if
+  // Meta refuses, the report shows n/a instead of failing.
+  const reach: Record<string, { reach: number | null; views: number | null }> = {};
+  let insightsOk = true;
+  for (let i = 0; i < posts.length && insightsOk; i += 25) {
+    const chunk = posts.slice(i, i + 25);
+    try {
+      const r = await graph<Record<string, { insights?: { data: Array<{ name: string; values: Array<{ value: number }> }> } }>>("", token, {
+        ids: chunk.map((p) => p.id).join(","),
+        fields: "insights.metric(post_impressions_unique,post_impressions)",
+      });
+      for (const [id, v] of Object.entries(r)) {
+        const get = (n: string) => v.insights?.data.find((d) => d.name === n)?.values?.[0]?.value ?? null;
+        reach[id] = { reach: get("post_impressions_unique"), views: get("post_impressions") };
+      }
+    } catch {
+      insightsOk = false;
+    }
+  }
   return {
     name: page.name ?? null,
     followers: page.followers_count ?? page.fan_count ?? null,
+    insightsAvailable: insightsOk,
     posts: posts.map((p) => ({
       id: p.id,
       caption: p.message?.trim().slice(0, 160) ?? null,
@@ -123,8 +143,8 @@ export async function getPageReport(composite: string, since: string, until: str
       thumbnailUrl: p.full_picture ?? null,
       mediaType: p.status_type === "added_video" ? "VIDEO" : p.full_picture ? "IMAGE" : "TEXT",
       timestamp: p.created_time,
-      views: null,
-      reach: null,
+      views: reach[p.id]?.views ?? null,
+      reach: reach[p.id]?.reach ?? null,
       likes: p.reactions?.summary.total_count ?? 0,
       comments: p.comments?.summary.total_count ?? 0,
       saved: null,

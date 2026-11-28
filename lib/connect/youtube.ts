@@ -126,3 +126,54 @@ export async function setYoutubeThumbnail(connectionId: string, videoId: string,
   });
   if (!res.ok) throw new Error(`YouTube thumbnail: ${(await res.text()).slice(0, 200)}`);
 }
+
+/** Blizsocials: channel totals and videos published in a period (YouTube Data API, read-only). */
+export async function getYoutubeReport(connectionId: string, since: string, until: string) {
+  const token = await youtubeAccessToken(connectionId);
+  const g = async <T,>(path: string) => {
+    const res = await fetch(`https://www.googleapis.com/youtube/v3/${path}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(25_000) });
+    const j = (await res.json()) as T & { error?: { message: string } };
+    if (!res.ok) throw new Error(`YouTube: ${j.error?.message ?? res.status}`);
+    return j;
+  };
+  const ch = await g<{ items?: Array<{ snippet: { title: string }; statistics: { subscriberCount?: string; viewCount?: string; videoCount?: string }; contentDetails: { relatedPlaylists: { uploads: string } } }> }>("channels?part=snippet,statistics,contentDetails&mine=true");
+  const c = ch.items?.[0];
+  if (!c) throw new Error("YouTube channel not found");
+  const ids: string[] = [];
+  let page = "";
+  for (let i = 0; i < 4; i++) {
+    const pl = await g<{ items?: Array<{ contentDetails: { videoId: string; videoPublishedAt?: string } }>; nextPageToken?: string }>(`playlistItems?part=contentDetails&maxResults=50&playlistId=${c.contentDetails.relatedPlaylists.uploads}${page ? `&pageToken=${page}` : ""}`);
+    let older = false;
+    for (const it of pl.items ?? []) {
+      const d = (it.contentDetails.videoPublishedAt ?? "").slice(0, 10);
+      if (d && d < since) { older = true; continue; }
+      if (d && d <= until) ids.push(it.contentDetails.videoId);
+    }
+    if (older || !pl.nextPageToken) break;
+    page = pl.nextPageToken;
+  }
+  const videos: Array<{ id: string; snippet: { title: string; publishedAt: string; thumbnails?: { medium?: { url: string } } }; statistics: { viewCount?: string; likeCount?: string; commentCount?: string } }> = [];
+  for (let i = 0; i < ids.length; i += 50) {
+    const v = await g<{ items?: typeof videos }>(`videos?part=snippet,statistics&id=${ids.slice(i, i + 50).join(",")}`);
+    videos.push(...(v.items ?? []));
+  }
+  return {
+    name: c.snippet.title,
+    followers: c.statistics.subscriberCount ? Number(c.statistics.subscriberCount) : null,
+    totalViews: Number(c.statistics.viewCount ?? 0),
+    posts: videos.map((v) => ({
+      id: v.id,
+      caption: v.snippet.title,
+      permalink: `https://www.youtube.com/watch?v=${v.id}`,
+      thumbnailUrl: v.snippet.thumbnails?.medium?.url ?? null,
+      mediaType: "VIDEO",
+      timestamp: v.snippet.publishedAt,
+      views: Number(v.statistics.viewCount ?? 0),
+      reach: null,
+      likes: Number(v.statistics.likeCount ?? 0),
+      comments: Number(v.statistics.commentCount ?? 0),
+      saved: null,
+      shares: null,
+    })),
+  };
+}

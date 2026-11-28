@@ -97,16 +97,16 @@ export default function ReportsPage() {
   }, []);
 
   useEffect(() => {
-    if (!client || (platform !== "instagram" && platform !== "facebook")) return;
+    if (!client || !["instagram", "facebook", "youtube"].includes(platform)) return;
     let live = true;
     void Promise.resolve().then(() => { setLoading(true); setError(null); });
-    const get = (r: Range): Promise<Overview> => platform === "facebook"
-      ? fetch(`/api/facebook/report?instagramAccountId=${client}&since=${r.from}&until=${r.to}`).then((x) => x.json()).then((p) => {
-          if (!p.success) throw new Error(p.error || "Could not load Facebook");
+    const get = (r: Range): Promise<Overview> => platform === "facebook" || platform === "youtube"
+      ? fetch(`/api/${platform}/report?instagramAccountId=${client}&since=${r.from}&until=${r.to}`).then((x) => x.json()).then((p) => {
+          if (!p.success) throw new Error(p.error || "Could not load this platform");
           const posts = p.data.posts as Post[];
           const t = { posts: posts.length, views: 0, reach: 0, likes: 0, comments: 0, saved: 0, shares: 0, interactions: 0 };
-          for (const x of posts) { t.likes += x.likes; t.comments += x.comments; t.shares += x.shares ?? 0; t.interactions += interactions(x); }
-          return { account: { id: client, username: p.data.name ?? "" }, followers: p.data.followers, followerHistory: [], insightsAvailable: false, totals: t, posts };
+          for (const x of posts) { t.likes += x.likes; t.comments += x.comments; t.shares += x.shares ?? 0; t.views += x.views ?? 0; t.reach += x.reach ?? 0; t.interactions += interactions(x); }
+          return { account: { id: client, username: p.data.name ?? "" }, followers: p.data.followers, followerHistory: [], insightsAvailable: !!p.data.insightsAvailable, totals: t, posts };
         })
       : fetch(`/api/instagram/overview?instagramAccountId=${client}&since=${r.from}&until=${r.to}`).then((x) => x.json()).then((p) => { if (!p.success) throw new Error(p.error || "Could not load"); return p.data as Overview; });
     Promise.all([get(range), get(prev).catch(() => null)])
@@ -194,7 +194,7 @@ export default function ReportsPage() {
             ))}
           </div>
 
-          {platform !== "instagram" && platform !== "facebook" ? (
+          {!["instagram", "facebook", "youtube"].includes(platform) ? (
             <p className="rounded-xl border border-dashed border-border p-6 text-sm text-muted">This platform&apos;s report switches on as soon as its connection is approved for this client. Until then nothing is shown here, so no number is ever guessed.</p>
           ) : error ? (
             <p className="rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>
@@ -202,7 +202,8 @@ export default function ReportsPage() {
             <p className="p-6 text-sm text-muted">{loading ? "Loading the report…" : "Choose a client to see their report."}</p>
           ) : (
             <div className={`space-y-4 ${loading ? "opacity-60" : ""}`}>
-              {platform === "facebook" && <p className="rounded-xl bg-[#F4F7FF] p-3 text-xs text-[#2B4C9B]">Facebook Page: posts, reactions, comments and shares are counted from the Page itself. Reach and views per post need Meta&apos;s Page insights permission, which comes with App Review, so they show as n/a until then.</p>}
+              {platform === "facebook" && !a.insightsAvailable && <p className="rounded-xl bg-[#F4F7FF] p-3 text-xs text-[#2B4C9B]">Facebook Page: posts, reactions, comments and shares are counted from the Page itself. Meta has not yet let us read reach and views per post for this Page, so they show as n/a. They fill in automatically once Meta approves our App Review.</p>}
+              {platform === "youtube" && <p className="rounded-xl bg-[#FFF1F1] p-3 text-xs text-[#9B2B2B]">YouTube: subscribers, videos, views, likes and comments come straight from the channel. Watch time and audience details need YouTube Analytics access, which comes with Google&apos;s verification.</p>}
               {platform === "instagram" && !a.insightsAvailable && <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Instagram did not share reach and views for this account, so those show as 0. Reconnect the client with insights permission to fill them in.</p>}
               <div className="rounded-xl p-4 text-sm leading-relaxed" style={{ background: "#FFFBE3", border: "1px solid #F3E3A0" }}><b>In one minute.</b> {platform === "facebook" ? summary.replace(`@${name}`, a.account.username || `@${name}`).replace(/reached [^ ]+ accounts( \([^)]*\))? and /, "") : summary}</div>
 

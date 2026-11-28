@@ -107,6 +107,17 @@ export default function InboxPage() {
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [accountId, setAccountId] = useState("");
   const [tab, setTab] = useState<Tab>("all");
+  // "My clients": each team member ticks the clients they handle (saved on this device).
+  const [mine, setMine] = useState<string[]>(() => {
+    if (typeof window === "undefined") return []; try { return JSON.parse(window.localStorage.getItem("bliz.myClients") ?? "[]"); } catch { return []; }
+  });
+  const [mineOnly, setMineOnly] = useState(true);
+  const [mineOpen, setMineOpen] = useState(false);
+  const toggleMine = (id: string) => setMine((m) => {
+    const next = m.includes(id) ? m.filter((x) => x !== id) : [...m, id];
+    try { window.localStorage.setItem("bliz.myClients", JSON.stringify(next)); } catch { /* storage blocked */ }
+    return next;
+  });
   const [now, setNow] = useState(() => Date.now());
 
   const [igDms, setIgDms] = useState<Thread[]>([]);
@@ -331,6 +342,7 @@ export default function InboxPage() {
     return true;
   });
   const count = (list: Thread[]) => list.filter(isUnread).length;
+  const pickerAccounts = mineOnly && mine.length ? accounts.filter((a) => mine.includes(a.id) || a.id === accountId) : [...accounts].sort((x, y) => Number(mine.includes(y.id)) - Number(mine.includes(x.id)));
   const tabs: Array<[Tab, string, number, string | null]> = [
     ["all", "All DMs", count(igDms) + count(fbDms), null],
     ["ig", "DMs", count(igDms), "instagram"],
@@ -364,11 +376,29 @@ export default function InboxPage() {
               </button>
             ))}
           </div>
-          {accounts.length > 1 && <div className="hidden shrink-0 sm:block"><AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} includeAll={false} /></div>}
+          {accounts.length > 1 && (
+            <div className="relative shrink-0">
+              <button type="button" onClick={() => setMineOpen((o) => !o)} className="flex h-9 items-center gap-1.5 rounded-lg border border-border bg-white px-3 text-[13px] font-semibold" style={mine.length && mineOnly ? { borderColor: "#0E0E0E" } : undefined}>
+                ★ My clients{mine.length ? ` (${mine.length})` : ""}
+              </button>
+              {mineOpen && (
+                <div className="absolute right-0 z-30 mt-1 w-64 rounded-xl border border-border bg-white p-2 shadow-xl">
+                  <p className="px-2 pb-1 text-xs text-muted">Tick the clients you handle. You&apos;ll see them first.</p>
+                  {accounts.map((a) => (
+                    <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-[#F4F2EC]">
+                      <input type="checkbox" checked={mine.includes(a.id)} onChange={() => toggleMine(a.id)} />@{a.username}
+                    </label>
+                  ))}
+                  <label className="mt-1 flex items-center gap-2 border-t border-border px-2 pt-2 text-xs"><input type="checkbox" checked={mineOnly} onChange={() => setMineOnly((v) => !v)} />Only show my clients in the picker</label>
+                </div>
+              )}
+            </div>
+          )}
+          {accounts.length > 1 && <div className="hidden shrink-0 sm:block"><AccountSelect accounts={pickerAccounts} value={accountId} onChange={setAccountId} includeAll={false} label="" /></div>}
           <button type="button" title="Sync now" onClick={() => void load()} disabled={loading} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-white"><span className={loading ? "animate-spin" : ""}>⟳</span></button>
           <button type="button" title="Contact details" onClick={() => setShowInfo((v) => !v)} className="hidden h-9 shrink-0 items-center rounded-lg border border-border px-3 text-[13px] font-semibold lg:flex" style={showInfo ? { background: BLACK, color: "#fff", borderColor: BLACK } : undefined}>Details</button>
         </div>
-        {accounts.length > 1 && <div className="border-b border-border p-2 sm:hidden"><AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} includeAll={false} /></div>}
+        {accounts.length > 1 && <div className="border-b border-border p-2 sm:hidden"><AccountSelect accounts={pickerAccounts} value={accountId} onChange={setAccountId} includeAll={false} label="" /></div>}
 
         <div className={`grid h-[calc(100dvh-12rem)] min-h-[440px] grid-cols-1 ${showInfo && active ? "lg:grid-cols-[340px_1fr_300px]" : "md:grid-cols-[340px_1fr]"}`}>
           {/* List */}
