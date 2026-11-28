@@ -12,6 +12,7 @@
  * into something a client can be sent.
  */
 
+import ResultsOverview from "@/components/results-overview";
 import { useEffect, useState } from "react";
 import AccountSelect from "@/components/account-select";
 import ResultsTabs from "@/components/dashboard/results-tabs";
@@ -248,6 +249,9 @@ export default function DashboardPage() {
 
       {data && (
         <div className={`space-y-6 sm:space-y-8 ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
+          {!single && <ResultsOverview accounts={data.accounts} range={range} dmsDelivered={data.kpis.sent.value} dmsChange={data.kpis.sent.change} />}
+
+          <h2 className="pt-2 text-lg font-semibold" style={{ fontFamily: "var(--font-display)" }}>Automation results</h2>
           <KpiRow kpis={data.kpis} />
 
           <SetupChecklist setup={data.setup} />
