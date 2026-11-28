@@ -529,7 +529,14 @@ export function ClientsTable({
 /* Automations + keywords                                              */
 /* ------------------------------------------------------------------ */
 
-export function AutomationsTable({ rows }: { rows: AutomationRow[] }) {
+export function AutomationsTable({
+  rows,
+  linkable = true,
+}: {
+  rows: AutomationRow[];
+  /** Off on public pages, where the staff-only automation screen is not available. */
+  linkable?: boolean;
+}) {
   if (rows.length === 0) {
     return (
       <Empty>
@@ -557,12 +564,18 @@ export function AutomationsTable({ rows }: { rows: AutomationRow[] }) {
           {rows.map((a) => (
             <tr key={a.id} className="border-b border-border last:border-0">
               <th scope="row" className="py-2 pr-3 text-left font-medium">
-                <Link href={`/campaigns/${a.id}`} className="block min-h-11 content-center hover:underline">
-                  <span className="block text-foreground">{a.name}</span>
-                  <span className="block text-xs font-normal text-muted">
-                    @{a.client}{a.isActive ? "" : " · Paused"}
+                {linkable ? (
+                  <Link href={`/campaigns/${a.id}`} className="block min-h-11 content-center hover:underline">
+                    <span className="block text-foreground">{a.name}</span>
+                    <span className="block text-xs font-normal text-muted">
+                      @{a.client}{a.isActive ? "" : " · Paused"}
+                    </span>
+                  </Link>
+                ) : (
+                  <span className="block py-1">
+                    <span className="block text-foreground">{a.name}</span>
                   </span>
-                </Link>
+                )}
               </th>
               <td className="px-3 py-2 text-right font-medium">{formatNumber(a.sent)}</td>
               <td className="px-3 py-2 text-right">{formatNumber(a.clicks)}</td>

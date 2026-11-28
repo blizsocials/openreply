@@ -14,7 +14,6 @@ import { onClientChange, readClient, writeClient } from "@/lib/client-selection"
 
 const navItems = [
   { label: "Results", href: "/dashboard" },
-  { label: "Metrics", href: "/overview" },
   { label: "Clients", href: "/clients" },
   { label: "Automations", href: "/campaigns" },
   { label: "Schedule", href: "/schedule" },

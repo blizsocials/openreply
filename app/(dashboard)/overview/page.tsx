@@ -12,6 +12,7 @@ import type { Locale } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18n/provider";
 import { useEffect, useState } from "react";
 import AccountSelect from "@/components/account-select";
+import ResultsTabs from "@/components/dashboard/results-tabs";
 import DateRangePicker from "@/components/date-range-picker";
 import AllClientsTotals from "@/components/all-clients-totals";
 import StatCard from "@/components/stat-card";
@@ -113,19 +114,25 @@ export default function OverviewPage() {
 
   if (loading && !data) {
     return (
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-        {[...Array(6)].map((_, i) => (
-          <div key={i} className="panel rounded p-4 h-24 sm:p-5">
-            <div className="h-4 w-16 bg-zinc-200 rounded" />
-            <div className="mt-3 h-6 w-20 bg-zinc-200/60 rounded" />
-          </div>
-        ))}
+      <div className="space-y-6">
+        <ResultsTabs />
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4" role="status">
+          <span className="sr-only">Loading account growth</span>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="panel rounded p-4 h-24 sm:p-5">
+              <div className="h-4 w-16 bg-zinc-200 rounded" />
+              <div className="mt-3 h-6 w-20 bg-zinc-200/60 rounded" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
+      <div className="space-y-6">
+      <ResultsTabs />
       <div className="panel rounded p-8 text-center">
         <p className="text-sm text-error">{error === "Failed to load overview" ? t("Failed to load overview") : error}</p>
         {error.includes("connect") && (
@@ -137,6 +144,7 @@ export default function OverviewPage() {
           </a>
         )}
       </div>
+      </div>
     );
   }
 
@@ -147,11 +155,12 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-8">
+      <ResultsTabs />
       {accounts.length > 1 && <AllClientsTotals accounts={accounts} rangeQuery={rangeQuery} />}
       {data.limitations?.map(note => <p key={note} className="text-sm text-muted">{note}</p>)}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-lg font-semibold text-foreground">Metrics</h1>
+          <h1 className="text-lg font-semibold text-foreground">Account growth</h1>
           <p className="text-sm text-muted mt-1">
             {data.provider !== "ZERNIO" && data.requestedCount === "all" ? t("All-time") : t("Recent")} —{" "}
             {t(totals.posts === 1 ? "{count} post" : "{count} posts", { count: totals.posts })} {t("from @")}

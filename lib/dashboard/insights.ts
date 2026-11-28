@@ -281,3 +281,64 @@ export function clientHealth(items: AttentionItem[], sent: number): ClientHealth
 }
 
 export { calculateCtr };
+
+/* ------------------------------------------------------------------ */
+/* Calendar months (client reports)                                    */
+/* ------------------------------------------------------------------ */
+
+/** "2026-11" for the Lagos month this instant falls in. */
+export function lagosMonthKey(date: Date): string {
+  return lagosDay(date).slice(0, 7);
+}
+
+/** The month before `key`, e.g. "2026-01" gives "2025-12". */
+export function previousMonthKey(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 2, 1));
+  return d.toISOString().slice(0, 7);
+}
+
+function nextMonthKey(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7);
+}
+
+/** The instant a Lagos month begins. */
+export function monthStart(key: string): Date {
+  return dayKeyStart(`${key}-01`);
+}
+
+/** Day keys of a month, stopping at today when the month is still running. */
+export function monthDayKeys(key: string, now: Date): string[] {
+  const today = lagosDay(now);
+  const keys: string[] = [];
+  const end = nextMonthKey(key);
+  for (let d = Date.parse(`${key}-01T00:00:00Z`); ; d += DAY_MS) {
+    const iso = new Date(d).toISOString().slice(0, 10);
+    if (iso.slice(0, 7) === end || iso > today) break;
+    keys.push(iso);
+  }
+  return keys;
+}
+
+/** "November 2026" */
+export function monthLabel(key: string): string {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** Resolve "current", "previous" or "YYYY-MM" to a month that is not in the future and not older than a year. */
+export function resolveMonth(input: string, now: Date): string | null {
+  const current = lagosMonthKey(now);
+  const key =
+    input === "current" ? current : input === "previous" ? previousMonthKey(current) : input;
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(key)) return null;
+  if (key > current) return null;
+  let oldest = current;
+  for (let i = 0; i < 12; i++) oldest = previousMonthKey(oldest);
+  return key < oldest ? null : key;
+}

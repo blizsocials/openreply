@@ -16,7 +16,7 @@ const plainTitles: Record<string, string> = {
   "/campaigns/new": "New automation",
   "/automations": "Automations",
   "/automations/new": "New automation",
-  "/overview": "Metrics",
+  "/overview": "Results",
   "/clients": "Clients",
   "/schedule": "Schedule",
 };

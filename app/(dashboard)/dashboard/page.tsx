@@ -14,6 +14,8 @@
 
 import { useEffect, useState } from "react";
 import AccountSelect from "@/components/account-select";
+import ResultsTabs from "@/components/dashboard/results-tabs";
+import ShareReport from "@/components/dashboard/share-report";
 import {
   AttentionPanel,
   AutomationsTable,
@@ -163,6 +165,8 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      <ResultsTabs />
+
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Results</h1>
@@ -219,6 +223,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {data && single && (
+        <div className="print:hidden">
+          <ShareReport
+            key={accountId}
+            accountId={accountId}
+            username={data.accounts.find((a) => a.id === accountId)?.username ?? ""}
+          />
+        </div>
+      )}
+
       {loading && !data && <Skeleton />}
 
       {error && (
@@ -262,7 +276,7 @@ export default function DashboardPage() {
           </div>
 
           {!single && (
-            <Panel title="Every client at a glance" subtitle="Tap a client to focus the whole page on them">
+            <Panel title="Every client at a glance" subtitle="Tap a client to focus the page on them. Then you can share their monthly report.">
               <ClientsTable clients={data.clients} onSelect={pickClient} />
             </Panel>
           )}
