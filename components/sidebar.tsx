@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { onClientChange, readClient, writeClient } from "@/lib/client-selection";
 
 const navItems = [
-  { label: "Dashboard", href: "/dashboard" },
+  { label: "Results", href: "/dashboard" },
   { label: "Metrics", href: "/overview" },
   { label: "Clients", href: "/clients" },
   { label: "Automations", href: "/campaigns" },

@@ -1,205 +1,288 @@
 "use client";
 
 /**
- * Dashboard Home Page
+ * Dashboard
  *
- * Overview cards, 7-day chart, and recent activity feed.
+ * Answers three questions in this order:
+ *   1. Is anything broken? (needs attention)
+ *   2. How are the automations doing? (results against the last period)
+ *   3. Which client or automation is behind it? (breakdowns)
+ *
+ * Staff read it to run the day; the print and CSV buttons turn the same view
+ * into something a client can be sent.
  */
 
-import { useI18n } from "@/lib/i18n/provider";
 import { useEffect, useState } from "react";
-import AccountSelect, { type AccountOption } from "@/components/account-select";
-import StatCard from "@/components/stat-card";
-import StatusBadge from "@/components/status-badge";
+import AccountSelect from "@/components/account-select";
+import {
+  AttentionPanel,
+  AutomationsTable,
+  ClientsTable,
+  Funnel,
+  HoursChart,
+  KeywordList,
+  KpiRow,
+  Panel,
+  SetupChecklist,
+  TrendChart,
+} from "@/components/dashboard/panels";
+import type { Insights } from "@/components/dashboard/types";
+import { writeClient } from "@/lib/client-selection";
 
-interface DashboardStats {
-  userName: string | null;
-  contactsCount: number;
-  totalAutomations: number;
-  activeAutomations: number;
-  dmsSentToday: number;
-  dmsSentWeek: number;
-  dmsSentMonth: number;
-  dmsSkippedMonth: number;
-  dmsFailedMonth: number;
-  totalDMs: number;
-  clicksThisMonth: number;
-  totalClicks: number;
-  ctrThisMonth: number;
-  instagramAccounts: AccountOption[];
-  selectedInstagramAccountId: string | null;
-  topKeywords: { keyword: string; count: number }[];
-  dailyDMs: { date: string; count: number }[];
-  recentLogs: Array<{
-    id: string;
-    commenterName: string | null;
-    commentText: string;
-    status: string;
-    createdAt: string;
-    automation: { name: string };
-    instagramAccount?: { username: string };
-  }>;
+const RANGES = [
+  { days: 7, label: "7 days" },
+  { days: 30, label: "30 days" },
+  { days: 90, label: "90 days" },
+] as const;
+
+function csvCell(value: string | number | null): string {
+  const text = value === null ? "" : String(value);
+  // Spreadsheets run text that starts with these as a formula.
+  const safe = /^[=+\-@]/.test(text) ? `'${text}` : text;
+  return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+function buildCsv(data: Insights): string {
+  const rows: (string | number | null)[][] = [
+    ["Blizsocials automation results"],
+    ["Period start", data.from.slice(0, 10), "Period end", data.to.slice(0, 10)],
+    [],
+    ["Daily results"],
+    ["Day", "DMs delivered", "Link clicks", "Failed", "Skipped"],
+    ...data.daily.map((d) => [d.date, d.sent, d.clicks, d.failed, d.skipped]),
+    [],
+    ["Clients"],
+    ["Client", "Automations on", "Automations total", "DMs delivered", "Failed", "Clicks", "Click rate %"],
+    ...data.clients.map((c) => [`@${c.username}`, c.activeAutomations, c.totalAutomations, c.sent, c.failed, c.clicks, c.ctr]),
+    [],
+    ["Automations"],
+    ["Automation", "Client", "DMs delivered", "Failed", "Clicks", "Click rate %"],
+    ...data.automations.map((a) => [a.name, `@${a.client}`, a.sent, a.failed, a.clicks, a.ctr]),
+  ];
+  return rows.map((r) => r.map(csvCell).join(",")).join("\n");
+}
+
+function downloadCsv(data: Insights) {
+  const blob = new Blob([`﻿${buildCsv(data)}`], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `blizsocials-results-${data.to.slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function Skeleton() {
+  return (
+    <div className="space-y-6" role="status" aria-live="polite">
+      <span className="sr-only">Loading your results</span>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="panel h-36 animate-pulse p-5">
+            <div className="h-4 w-24 rounded bg-surface-hover" />
+            <div className="mt-3 h-8 w-20 rounded bg-surface-hover" />
+            <div className="mt-4 h-4 w-32 rounded bg-surface-hover" />
+          </div>
+        ))}
+      </div>
+      <div className="panel h-80 animate-pulse" />
+    </div>
+  );
 }
 
 export default function DashboardPage() {
-  const { t, label } = useI18n();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [data, setData] = useState<Insights | null>(null);
+  const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [selectedAccountId, setSelectedAccountId] = useState("all");
+  const [range, setRange] = useState<7 | 30 | 90>(30);
+  const [accountId, setAccountId] = useState("all");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (selectedAccountId !== "all") {
-      params.set("instagramAccountId", selectedAccountId);
-    }
-
-    fetch(`/api/dashboard/stats${params.size ? `?${params}` : ""}`)
+    let cancelled = false;
+    const params = new URLSearchParams({ range: String(range) });
+    if (accountId !== "all") params.set("instagramAccountId", accountId);
+    fetch(`/api/dashboard/insights?${params}`)
       .then((r) => r.json())
-      .then((data) => {
-        if (data.success) setStats(data.data);
+      .then((json) => {
+        if (cancelled) return;
+        if (json.success) {
+          setData(json.data as Insights);
+          setError(false);
+        } else {
+          setError(true);
+        }
       })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [selectedAccountId]);
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [range, accountId, attempt]);
 
-  function handleAccountChange(accountId: string) {
+  function changeRange(next: 7 | 30 | 90) {
     setLoading(true);
-    setSelectedAccountId(accountId);
+    setRange(next);
   }
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="panel rounded p-5 h-32">
-              <div className="w-10 h-10 rounded bg-surface-hover" />
-              <div className="mt-4 h-6 w-16 bg-surface-hover rounded" />
-              <div className="mt-2 h-4 w-24 bg-surface-hover/60 rounded" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+  function changeClient(id: string) {
+    setLoading(true);
+    setAccountId(id);
   }
 
-  const maxDM = Math.max(...(stats?.dailyDMs.map((d) => d.count) ?? [1]), 1);
+  function retry() {
+    setError(false);
+    setLoading(true);
+    setAttempt((n) => n + 1);
+  }
 
-  const connectedCount = stats?.instagramAccounts.length ?? 0;
+  function pickClient(id: string) {
+    writeClient(id);
+    changeClient(id);
+  }
+
+  const single = accountId !== "all";
+  const periodLabel = RANGES.find((r) => r.days === range)?.label ?? "";
+  const clientLabel = data && single
+    ? `@${data.accounts.find((a) => a.id === accountId)?.username ?? ""}`
+    : "All clients";
 
   return (
-    <div className="space-y-8">
-      {/* Greeting header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="space-y-6 sm:space-y-8">
+      {/* Print-only heading, so a saved PDF says what it is. */}
+      <div className="hidden print:block">
+        <h1 className="text-2xl font-bold">Blizsocials automation results</h1>
+        <p className="text-sm">
+          {clientLabel} · last {periodLabel}
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between print:hidden">
         <div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-            {t("Hello, {name}!", { name: stats?.userName ?? t("there") })}
-          </h1>
+          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Results</h1>
           <p className="mt-1 text-sm text-muted">
-            {t(connectedCount === 1 ? "{count} connected account" : "{count} connected accounts", { count: connectedCount })}
-            {" · "}
-            {t(stats?.contactsCount === 1 ? "{count} contact" : "{count} contacts", { count: stats?.contactsCount ?? 0 })}
-            {" · "}
-            <a href="/logs" className="text-accent hover:underline">
-              {t("See activity")}
-            </a>
+            What your automations did for {single ? clientLabel : "every client"}, compared with the period before.
           </p>
         </div>
-        {stats && stats.instagramAccounts.length > 1 && (
-          <AccountSelect
-            accounts={stats.instagramAccounts}
-            value={selectedAccountId}
-            onChange={handleAccountChange}
-          />
-        )}
-      </div>
-
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
-        <StatCard
-          label={t("Active Campaigns")}
-          value={stats?.activeAutomations ?? 0}
-        />
-        <StatCard label={t("DMs Sent")} value={stats?.dmsSentMonth ?? 0} />
-        <StatCard label={t("Skipped")} value={stats?.dmsSkippedMonth ?? 0} />
-        <StatCard label={t("Failed")} value={stats?.dmsFailedMonth ?? 0} />
-        <StatCard label={t("Clicks")} value={stats?.clicksThisMonth ?? 0} />
-        <StatCard label={t("CTR")} value={`${stats?.ctrThisMonth ?? 0}%`} />
-      </div>
-
-      {/* Chart + Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-6 gap-4 sm:gap-6">
-        {/* 7-Day Chart */}
-        <div className="lg:col-span-3 panel rounded p-4 sm:p-6">
-          <h2 className="text-sm font-semibold text-foreground mb-6">{t("DMs — Last 7 Days")}</h2>
-          <div className="flex items-end gap-1.5 h-40 sm:gap-2">
-            {stats?.dailyDMs.map((day) => (
-              <div key={label(day.date)} className="min-w-0 flex-1 h-full flex flex-col items-center gap-2">
-                <span className="text-xs text-muted font-medium">{day.count}</span>
-                {/* A percentage height needs a parent with a definite height, so
-                    the bar sits in a wrapper that fills the column's free space. */}
-                <div className="w-full min-h-0 flex-1 flex items-end">
-                  <div
-                    className="w-full rounded-sm bg-accent min-h-[4px]"
-                    style={{ height: `${Math.max((day.count / maxDM) * 100, 4)}%` }}
-                  />
-                </div>
-                {/* Seven labels share a phone's width, so they must not wrap. */}
-                <span className="w-full truncate text-center text-[10px] text-zinc-500">
-                  {label(day.date)}
-                </span>
-              </div>
-            ))}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div role="group" aria-label="Time period" className="inline-flex overflow-hidden rounded-xl border border-border bg-surface">
+            {RANGES.map((r) => {
+              const active = r.days === range;
+              return (
+                <button
+                  key={r.days}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => changeRange(r.days)}
+                  className={`min-h-11 flex-1 px-4 text-sm font-medium sm:flex-none ${
+                    active ? "bg-accent text-white" : "text-foreground hover:bg-surface-hover"
+                  }`}
+                >
+                  {r.label}
+                </button>
+              );
+            })}
           </div>
-        </div>
-
-        {/* Top Keywords */}
-        <div className="lg:col-span-1 panel rounded p-4 sm:p-6">
-          <h2 className="text-sm font-semibold text-foreground mb-4">{t("Top Keywords")}</h2>
-          <div className="space-y-3">
-            {stats?.topKeywords.length === 0 && (
-              <p className="text-sm text-muted py-8">{t("No keyword matches yet")}</p>
-            )}
-            {stats?.topKeywords.map((keyword) => (
-              <div key={keyword.keyword} className="flex items-center justify-between gap-3">
-                <span className="truncate text-sm font-medium text-foreground">
-                  {keyword.keyword}
-                </span>
-                <span className="text-xs text-muted">{keyword.count}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="lg:col-span-2 panel rounded p-4 sm:p-6">
-          <h2 className="text-sm font-semibold text-foreground mb-4">{t("Recent Activity")}</h2>
-          <div className="space-y-3 max-h-60 overflow-y-auto">
-            {stats?.recentLogs.length === 0 && (
-              <p className="text-sm text-muted text-center py-8">{t("No activity yet")}</p>
-            )}
-            {stats?.recentLogs.map((log) => (
-              <div
-                key={log.id}
-                className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground truncate">
-                    @{log.commenterName ?? "unknown"}
-                  </p>
-                  <p className="text-xs text-muted truncate">
-                    {log.instagramAccount
-                      ? `@${log.instagramAccount.username} · `
-                      : ""}
-                    {log.commentText}
-                  </p>
-                </div>
-                <StatusBadge status={log.status} />
-              </div>
-            ))}
+          {data && data.accounts.length > 1 && (
+            <AccountSelect
+              accounts={data.accounts.map((a) => ({ id: a.id, username: a.username, name: a.name, instagramId: "" }))}
+              value={accountId}
+              onChange={changeClient}
+              label="Client"
+            />
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!data}
+              onClick={() => data && downloadCsv(data)}
+              className="min-h-11 rounded-xl border border-border bg-surface px-4 text-sm font-medium text-foreground hover:bg-surface-hover disabled:opacity-50"
+            >
+              Download CSV
+            </button>
+            <button
+              type="button"
+              disabled={!data}
+              onClick={() => window.print()}
+              className="min-h-11 rounded-xl px-4 text-sm font-semibold text-black disabled:opacity-50"
+              style={{ background: "#FFD700", border: "1px solid #0E0E0E" }}
+            >
+              Print or save as PDF
+            </button>
           </div>
         </div>
       </div>
+
+      {loading && !data && <Skeleton />}
+
+      {error && (
+        <div role="alert" className="panel flex flex-col items-start gap-3 p-6">
+          <p className="font-semibold text-foreground">The results could not be loaded.</p>
+          <p className="text-sm text-muted">Check your connection, then try again. Nothing was lost.</p>
+          <button
+            type="button"
+            onClick={retry}
+            className="min-h-11 rounded-xl bg-accent px-5 text-sm font-semibold text-white hover:bg-accent-hover"
+          >
+            Try again
+          </button>
+        </div>
+      )}
+
+      {data && (
+        <div className={`space-y-6 sm:space-y-8 ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
+          <SetupChecklist setup={data.setup} />
+
+          <Panel
+            title="Needs your attention"
+            subtitle={data.attention.length ? `${data.attention.length} to look at, most urgent first` : undefined}
+          >
+            <AttentionPanel items={data.attention} />
+          </Panel>
+
+          <KpiRow kpis={data.kpis} />
+
+          <Panel title="Results over time" subtitle={`Last ${periodLabel}, in Lagos time`}>
+            <TrendChart daily={data.daily} />
+          </Panel>
+
+          <div className="grid gap-6 sm:gap-8 lg:grid-cols-2">
+            <Panel title="From comment to click" subtitle="Where people drop off">
+              <Funnel funnel={data.funnel} />
+            </Panel>
+            <Panel title="When your audience comments">
+              <HoursChart hours={data.hours} />
+            </Panel>
+          </div>
+
+          {!single && (
+            <Panel title="Every client at a glance" subtitle="Tap a client to focus the whole page on them">
+              <ClientsTable clients={data.clients} onSelect={pickClient} />
+            </Panel>
+          )}
+
+          <div className="grid gap-6 sm:gap-8 lg:grid-cols-5">
+            <Panel title="Best automations" className="lg:col-span-3">
+              <AutomationsTable rows={data.automations} />
+            </Panel>
+            <Panel title="Words people comment" className="lg:col-span-2">
+              <KeywordList keywords={data.keywords} />
+            </Panel>
+          </div>
+
+          {data.truncated && (
+            <p className="text-sm text-muted">
+              This period has a very large number of events, so the oldest ones are left out. Pick a shorter period for exact numbers.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

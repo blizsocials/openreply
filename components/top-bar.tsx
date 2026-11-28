@@ -11,6 +11,11 @@ import { useI18n } from "@/lib/i18n/provider";
 import { usePathname } from "next/navigation";
 
 const plainTitles: Record<string, string> = {
+  "/dashboard": "Results",
+  "/campaigns": "Automations",
+  "/campaigns/new": "New automation",
+  "/automations": "Automations",
+  "/automations/new": "New automation",
   "/overview": "Metrics",
   "/clients": "Clients",
   "/schedule": "Schedule",

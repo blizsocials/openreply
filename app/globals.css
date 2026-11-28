@@ -112,3 +112,22 @@ h1, h2, h3 {
   font-display: swap;
 }
 .zernio-sponsor { font-family: 'Zernio Geist', sans-serif; }
+
+/* Printing the dashboard: drop the navigation and let the page run long. */
+@media print {
+  aside,
+  header {
+    display: none !important;
+  }
+  .h-dvh,
+  main {
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .panel {
+    break-inside: avoid;
+  }
+  body {
+    background: #ffffff;
+  }
+}
