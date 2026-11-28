@@ -331,62 +331,53 @@ export default function InboxPage() {
     return true;
   });
   const count = (list: Thread[]) => list.filter(isUnread).length;
-  const tabs: Array<[Tab, string, number]> = [
-    ["all", "All messages", count(igDms) + count(fbDms)],
-    ["ig", "Instagram", count(igDms)],
-    ["fb", "Messenger", count(fbDms)],
-    ["fbc", "Facebook comments", count(fbComments)],
-    ["igc", "Instagram comments", count(igComments)],
+  const tabs: Array<[Tab, string, number, string | null]> = [
+    ["all", "All DMs", count(igDms) + count(fbDms), null],
+    ["ig", "DMs", count(igDms), "instagram"],
+    ["fb", "Messenger", count(fbDms), "facebook"],
+    ["igc", "Comments", count(igComments), "instagram"],
+    ["fbc", "Comments", count(fbComments), "facebook"],
   ];
   const lastInbound = [...messages].reverse().find((m) => !m.fromMe)?.createdTime ?? null;
   const hoursLeft = lastInbound ? (WINDOW_MS - (now - new Date(lastInbound).getTime())) / 3_600_000 : null;
   const activeState = active ? states[active.key] : undefined;
   const nameOf = (id: string | null | undefined) => team.find((m) => m.id === id)?.name ?? null;
-  const chip = "flex items-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2 text-sm font-semibold hover:bg-surface-hover";
   const err = errors[tab === "all" ? "ig" : tab];
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold" style={{ fontFamily: "var(--font-display)" }}>Inbox</h1>
-          <p className="text-sm text-muted">Reply to every client&rsquo;s messages and comments with your own login.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {accounts.length > 1 && <AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} includeAll={false} />}
-          <button type="button" onClick={() => void load()} className={chip} disabled={loading}>
-            <span className={loading ? "animate-spin" : ""}>⟳</span> {loading ? "Syncing…" : "Sync"}
-          </button>
-          <button type="button" onClick={() => setShowInfo((v) => !v)} className={chip} style={showInfo ? { background: BLACK, color: "#fff", borderColor: BLACK } : undefined}>
-            👤 Info
-          </button>
-        </div>
-      </div>
-
       <div className="rounded-2xl border border-border bg-surface">
-        <div className="flex flex-wrap gap-1 border-b border-border p-2">
-          {tabs.map(([id, label, n]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => { setTab(id); setActiveKey(null); if (id.endsWith("c") && filter === "open") setFilter("all"); }}
-              className="flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold"
-              style={tab === id ? { background: "#FFF6BF" } : { color: "#5A5A5A" }}
-            >
-              {label}
-              {n > 0 && <span className="rounded-full px-1.5 text-[11px] font-bold text-white" style={{ background: "#E5484D" }}>{n}</span>}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 border-b border-border p-2">
+          <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]">
+            {tabs.map(([id, label, n, icon]) => (
+              <button
+                key={id}
+                type="button"
+                title={id === "all" ? "Every DM" : `${icon === "instagram" ? "Instagram" : "Facebook"} ${label}`}
+                onClick={() => { setTab(id); setActiveKey(null); if (id.endsWith("c") && filter === "open") setFilter("all"); }}
+                className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold"
+                style={tab === id ? { background: "#0E0E0E", color: "#fff" } : { color: "#5A5A5A", background: "#F4F2EC" }}
+              >
+                {icon && <PlatformIcon id={icon as never} size={15} />}
+                {label}
+                {n > 0 && <span className="rounded-full px-1.5 text-[10.5px] font-bold" style={tab === id ? { background: "#FFD701", color: "#0E0E0E" } : { background: "#E5484D", color: "#fff" }}>{n}</span>}
+              </button>
+            ))}
+          </div>
+          {accounts.length > 1 && <div className="hidden shrink-0 sm:block"><AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} includeAll={false} /></div>}
+          <button type="button" title="Sync now" onClick={() => void load()} disabled={loading} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-white"><span className={loading ? "animate-spin" : ""}>⟳</span></button>
+          <button type="button" title="Contact details" onClick={() => setShowInfo((v) => !v)} className="hidden h-9 shrink-0 items-center rounded-lg border border-border px-3 text-[13px] font-semibold lg:flex" style={showInfo ? { background: BLACK, color: "#fff", borderColor: BLACK } : undefined}>Details</button>
         </div>
+        {accounts.length > 1 && <div className="border-b border-border p-2 sm:hidden"><AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} includeAll={false} /></div>}
 
-        <div className={`grid h-[calc(100dvh-15rem)] min-h-[520px] grid-cols-1 ${showInfo && active ? "lg:grid-cols-[340px_1fr_300px]" : "md:grid-cols-[340px_1fr]"}`}>
+        <div className={`grid h-[calc(100dvh-12rem)] min-h-[440px] grid-cols-1 ${showInfo && active ? "lg:grid-cols-[340px_1fr_300px]" : "md:grid-cols-[340px_1fr]"}`}>
           {/* List */}
           <div className={`min-h-0 flex-col border-r border-border ${active ? "hidden md:flex" : "flex"}`}>
             <div className="space-y-2 border-b border-border p-3">
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="🔍  Search" className="w-full rounded-xl border border-border bg-white px-3.5 py-2 text-sm focus:outline-none" />
-              <div className="flex flex-wrap gap-1.5">
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search people or messages" className="h-9 w-full rounded-lg border border-border bg-white px-3 text-sm focus:outline-none" />
+              <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
                 {([["all", "All"], ["unread", tab.endsWith("c") ? "Not replied" : "Unread"], ["priority", "Priority"], ["follow", "Follow up"], ["mine", "Assigned to me"], ...(tab.endsWith("c") ? [] : [["open", "Window open"]])] as Array<[typeof filter, string]>).map(([id, label]) => (
-                  <button key={id} type="button" onClick={() => setFilter(id)} className="rounded-lg px-2.5 py-1 text-xs font-semibold" style={filter === id ? { background: BLACK, color: "#fff" } : { background: "#F0EEE6" }}>
+                  <button key={id} type="button" onClick={() => setFilter(id)} className="shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold" style={filter === id ? { background: BLACK, color: "#fff" } : { background: "#F0EEE6" }}>
                     {label}
                   </button>
                 ))}

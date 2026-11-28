@@ -257,13 +257,7 @@ export default function SchedulePage() {
   const field = "w-full rounded-xl border border-border bg-surface px-3 py-3 text-sm outline-none focus:border-accent";
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto flex flex-col gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Schedule posts</h1>
-          <p className="text-sm text-muted">Plan posts, carousels and Reels for any client. They publish automatically at the time you choose.</p>
-        </div>
-      </div>
+    <div className="mx-auto flex max-w-6xl flex-col gap-5">
 
       <div className="flex flex-wrap gap-6 items-start">
         <section className="panel p-5 flex flex-col gap-4" style={{ flex: "999 1 420px", minWidth: 0 }}>

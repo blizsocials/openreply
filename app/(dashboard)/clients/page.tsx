@@ -115,13 +115,8 @@ export default function ClientsPage() {
   const field = "w-full rounded-xl border border-border bg-surface px-3 py-3 text-sm outline-none focus:border-accent";
 
   return (
-    <div className="p-4 sm:p-8 max-w-5xl mx-auto flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Clients</h1>
-        <p className="text-sm text-muted">
-          Instagram and Facebook connect through your Business Manager. For YouTube and other platforms, send each client a connect link.
-        </p>
-      </div>
+    <div className="mx-auto flex max-w-5xl flex-col gap-5">
+      <p className="text-sm text-muted">Instagram and Facebook connect through your Business Manager. For YouTube, TikTok and other platforms, send each client a connect link.</p>
 
       <PlatformStrip />
 

@@ -168,12 +168,9 @@ export default function DashboardPage() {
       <ResultsTabs />
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between print:hidden">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Results</h1>
-          <p className="mt-1 text-sm text-muted">
-            What your automations did for {single ? clientLabel : "every client"}, compared with the period before.
-          </p>
-        </div>
+        <p className="text-sm text-muted">
+          What your automations did for {single ? clientLabel : "every client"}, compared with the period before.
+        </p>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
           <div role="group" aria-label="Time period" className="inline-flex overflow-hidden rounded-xl border border-border bg-surface">
             {RANGES.map((r) => {
