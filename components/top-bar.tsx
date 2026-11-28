@@ -13,6 +13,7 @@ import { usePathname } from "next/navigation";
 const subtitles: Record<string, string> = {
   "/dashboard": "How every client is doing, in one place",
   "/overview": "Followers, reach and posts for each client",
+  "/reports": "Detailed client reports, any period, compared side by side",
   "/schedule": "Plan and publish to every platform at once",
   "/inbox": "Every DM and comment, answered by the right person",
   "/campaigns": "Comment a keyword, get the DM. Running 24/7",
@@ -24,6 +25,7 @@ const subtitles: Record<string, string> = {
 
 const plainTitles: Record<string, string> = {
   "/logs": "DM logs",
+  "/reports": "Client reports",
   "/inbox": "Inbox",
   "/settings": "Settings",
   "/diagnostics": "Diagnostics",

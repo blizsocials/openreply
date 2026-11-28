@@ -18,7 +18,8 @@ const navGroups = [
     title: "Work",
     items: [
       { label: "Results", href: "/dashboard", icon: "results" },
-      { label: "Metrics", href: "/overview", icon: "reports" },
+      { label: "Client reports", href: "/reports", icon: "reports" },
+      { label: "Metrics", href: "/overview", icon: "results" },
       { label: "Schedule", href: "/schedule", icon: "schedule" },
       { label: "Inbox", href: "/inbox", icon: "inbox" },
       { label: "Automations", href: "/campaigns", icon: "automations" },
