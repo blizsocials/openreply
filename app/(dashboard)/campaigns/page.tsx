@@ -371,11 +371,11 @@ export default function CampaignsPage() {
           <div
             key={auto.id}
             onClick={() => router.push(`/campaigns/${auto.id}`)}
-            className="panel rounded p-4 hover:border-border-hover transition-all cursor-pointer"
+            className="panel cursor-pointer rounded-2xl px-4 py-3 transition-all hover:border-[#0E0E0E]"
           >
             {/* Wraps rather than compressing: on a phone the action buttons drop
                 to their own line instead of squeezing the campaign summary. */}
-            <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
               {auto.postId && thumbnails[auto.postId] && (
                 videoUrl ? (
                   <button
@@ -391,7 +391,7 @@ export default function CampaignsPage() {
                     <img
                       src={thumbnails[auto.postId]}
                       alt={t("Campaign reel")}
-                      className="w-12 h-12 rounded object-cover border border-border hover:border-border-hover"
+                      className="h-11 w-11 rounded-lg border border-border object-cover"
                       onError={(e) => {
                         e.currentTarget.style.display = "none";
                       }}
@@ -409,7 +409,7 @@ export default function CampaignsPage() {
                     <img
                       src={thumbnails[auto.postId]}
                       alt={t("Campaign post")}
-                      className="w-12 h-12 rounded object-cover border border-border"
+                      className="h-11 w-11 rounded-lg border border-border object-cover"
                       onError={(e) => {
                         e.currentTarget.style.display = "none";
                       }}
@@ -418,8 +418,8 @@ export default function CampaignsPage() {
                 )
               )}
               <div className="min-w-[12rem] flex-1">
-                <div className="flex flex-wrap items-center gap-2 mb-2">
-                  <h3 className="text-sm font-semibold truncate">{auto.name}</h3>
+                <div className="mb-1 flex flex-wrap items-center gap-2">
+                  <h3 className="truncate text-[13.5px] font-semibold">{auto.name}</h3>
                   <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-xs text-muted">
                     @{auto.instagramAccount.username}
                   </span>
@@ -449,59 +449,21 @@ export default function CampaignsPage() {
                   )}
                 </div>
 
-                {/* Keywords */}
-                <div className="flex flex-wrap gap-1.5 mb-2">
+                <div className="flex flex-wrap items-center gap-1.5">
                   {auto.keywords.map((kw) => (
-                    <span
-                      key={kw}
-                      className="px-2 py-0.5 rounded-md bg-accent/10 text-accent text-xs font-medium border border-accent/10"
-                    >
-                      {kw}
-                    </span>
+                    <span key={kw} className="rounded-md bg-[#F1EFE8] px-1.5 py-0.5 text-[11px] font-bold tracking-wide">{kw}</span>
                   ))}
+                  <span className="truncate text-xs text-muted">&ldquo;{auto.dmMessage}&rdquo;</span>
                 </div>
+              </div>
 
-                {/* DM preview */}
-                <p className="text-sm text-muted truncate">&ldquo;{auto.dmMessage}{t("”")}</p>
-
-                {/* Tracked link sent */}
-                {auto.trackedLinks[0]?.trackedUrl && (
-                  <p className="mt-2 truncate font-mono text-xs text-zinc-500">
-                    {auto.trackedLinks[0].trackedUrl}
-                  </p>
-                )}
-
-                {/* Stats */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-3 text-xs text-zinc-500">
-                  <span className="font-medium text-foreground">
-                    {auto._count.dmLogs} {t("runs")}
+              <div className="grid grid-cols-4 gap-4 text-right sm:gap-6">
+                {([["runs", auto._count.dmLogs], ["delivered", auto.analytics.sent], ["clicks", auto.analytics.clicks], ["failed", auto.analytics.failed]] as const).map(([k, v]) => (
+                  <span key={k} className="min-w-[3.5rem]">
+                    <b className="block text-[15px] font-semibold" style={{ fontFamily: "var(--font-display)", color: k === "failed" && v > 2 ? "#E0433A" : undefined }}>{v}</b>
+                    <small className="text-[11px] text-muted">{k}</small>
                   </span>
-                  <span>·</span>
-                  <span className="font-medium text-foreground">
-                    {auto.analytics.ctr}{t("% CTR")}
-                  </span>
-                  <span>·</span>
-                  <span>{auto.analytics.sent} {t("sent")}</span>
-                  <span>·</span>
-                  <span>{auto.analytics.skipped} {t("skipped")}</span>
-                  <span>·</span>
-                  <span>{auto.analytics.failed} {t("failed")}</span>
-                  <span>·</span>
-                  <span>{auto.analytics.clicks} {t("clicks")}</span>
-                </div>
-
-                {auto.analytics.topKeywords.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {auto.analytics.topKeywords.map((keyword) => (
-                      <span
-                        key={keyword.keyword}
-                        className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-muted"
-                      >
-                        {keyword.keyword}: {keyword.count}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                ))}
               </div>
 
               {/* Actions */}

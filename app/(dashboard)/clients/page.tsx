@@ -1,4 +1,5 @@
 "use client";
+import ClientConnections from "@/components/client-connections";
 import { PlatformIcon, PlatformStrip, PLATFORMS as LOGOS, type PlatformId } from "@/components/platform-icon";
 
 /**
@@ -116,6 +117,7 @@ export default function ClientsPage() {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5">
+      <ClientConnections />
       <p className="text-sm text-muted">Instagram and Facebook connect through your Business Manager. For YouTube, TikTok and other platforms, send each client a connect link.</p>
 
       <PlatformStrip />
