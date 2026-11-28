@@ -844,14 +844,21 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
             )}
           </div>
           <div className="mt-3 rounded-lg border border-border p-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-foreground">
-                {t("a follow requirement first")}
-              </span>
-              <Toggle
-                on={requireFollow}
-                onToggle={() => setRequireFollow(!requireFollow)}
-              />
+            <p className="mb-2 text-sm font-semibold text-foreground">Who can get the link?</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {([[false, "Everyone", "Send the link straight away. Best for giveaways and price lists."], [true, "Followers only", "Ask them to follow first. The link is sent once Instagram confirms the follow."]] as const).map(([val, title, desc]) => (
+                <button
+                  key={title}
+                  type="button"
+                  onClick={() => setRequireFollow(val)}
+                  aria-pressed={requireFollow === val}
+                  className="rounded-xl border-2 p-3 text-left"
+                  style={requireFollow === val ? { borderColor: "#0E0E0E", background: "#FFFBE3" } : { borderColor: "#E8E6DF" }}
+                >
+                  <span className="block text-sm font-semibold">{title}</span>
+                  <span className="block text-xs text-muted">{desc}</span>
+                </button>
+              ))}
             </div>
             {requireFollow && (
               <div className="mt-3 space-y-2">

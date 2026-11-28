@@ -81,13 +81,13 @@ export default function ContentCalendar({ posts, usernameOf, onlyAccount }: { po
             const list = byDay.get(key(d)) ?? [];
             const isToday = key(d) === todayKey;
             return (
-              <div key={i} className={`min-h-[110px] rounded-lg border p-1.5 ${isToday ? "border-[#0E0E0E] bg-[#FFFBE0]" : "border-border"}`}>
+              <div key={i} className={`min-h-[64px] rounded-lg border p-1 sm:min-h-[110px] sm:p-1.5 ${isToday ? "border-[#0E0E0E] bg-[#FFFBE0]" : "border-border"}`}>
                 <div className="mb-1 text-xs font-bold">{d.getDate()}</div>
                 <div className="flex flex-col gap-1">
                   {list.map((p) => {
                     const img = p.coverAssetId ?? p.mediaAssetIds[0];
                     return (
-                      <button key={p.id} type="button" onClick={() => setOpen(p)} className="flex items-center gap-1 rounded-md bg-surface p-1 text-left text-[10px] shadow-sm hover:bg-zinc-50">
+                      <button key={p.id} type="button" onClick={() => setOpen(p)} className="flex items-center gap-1 rounded-md p-1 text-left text-[10px] shadow-sm hover:brightness-95" style={{ background: `${DOT[p.status] ?? "#999999"}22`, borderLeft: `3px solid ${DOT[p.status] ?? "#999"}` }}>
                         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: DOT[p.status] ?? "#999" }} />
                         {img ? (
                           // eslint-disable-next-line @next/next/no-img-element

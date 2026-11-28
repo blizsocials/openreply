@@ -30,6 +30,16 @@ interface Pagination {
   totalPages: number;
 }
 
+const LOG_LABELS: Record<string, string> = {
+  ALL: "All",
+  SENT: "Delivered",
+  FAILED: "Failed",
+  PENDING: "Waiting (follow or queue)",
+  SKIPPED_RATE_LIMIT: "Skipped: Instagram limit",
+  SKIPPED_PLAN_LIMIT: "Skipped: monthly limit",
+  SKIPPED_DEDUP: "Skipped: already sent",
+};
+
 const STATUS_FILTERS = [
   "ALL",
   "SENT",
@@ -103,21 +113,21 @@ export default function LogsPage() {
     <div className="space-y-6">
       {/* Filters */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
           {STATUS_FILTERS.map((status) => (
             <button
               key={status}
               onClick={() => handleFilterChange(status)}
               className={`
-                px-3 py-1.5 rounded-lg text-xs font-medium transition-all
+                h-8 shrink-0 whitespace-nowrap rounded-full px-3 text-xs font-semibold transition-all
                 ${
                   statusFilter === status
-                    ? "bg-accent/15 text-accent border border-accent/20"
-                    : "bg-surface text-muted border border-border hover:border-border-hover hover:text-foreground"
+                    ? "bg-[#0E0E0E] text-white border border-[#0E0E0E]"
+                    : "bg-surface text-muted border border-border hover:text-foreground"
                 }
               `}
             >
-              {label(status)}
+              {LOG_LABELS[status] ?? label(status)}
             </button>
           ))}
         </div>

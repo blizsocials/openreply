@@ -248,6 +248,8 @@ export default function DashboardPage() {
 
       {data && (
         <div className={`space-y-6 sm:space-y-8 ${loading ? "opacity-60" : ""}`} aria-busy={loading}>
+          <KpiRow kpis={data.kpis} />
+
           <SetupChecklist setup={data.setup} />
 
           <Panel
@@ -256,8 +258,6 @@ export default function DashboardPage() {
           >
             <AttentionPanel items={data.attention} />
           </Panel>
-
-          <KpiRow kpis={data.kpis} />
 
           <Panel title="Results over time" subtitle={`Last ${periodLabel}, in Lagos time`}>
             <TrendChart daily={data.daily} />
