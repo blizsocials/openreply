@@ -363,6 +363,23 @@ export default function CampaignsPage() {
         </div>
       )}
 
+      {automations.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          {([
+            ["Runs", automations.reduce((n, a) => n + a._count.dmLogs, 0), ""],
+            ["DMs delivered", automations.reduce((n, a) => n + a.analytics.sent, 0), ""],
+            ["Link clicks", automations.reduce((n, a) => n + a.analytics.clicks, 0), ""],
+            ["Failed", automations.reduce((n, a) => n + a.analytics.failed, 0), "See DM logs"],
+          ] as const).map(([k, v, note]) => (
+            <div key={k} className="rounded-2xl border border-border bg-white p-4">
+              <p className="text-xs font-medium text-muted">{k}</p>
+              <p className="my-1 text-2xl font-semibold" style={{ fontFamily: "var(--font-display)", color: k === "Failed" && v > 0 ? "#E0433A" : undefined }}>{v.toLocaleString("en-NG")}</p>
+              <p className="text-xs text-muted">{note || "\u00a0"}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Campaign cards */}
       <div className="space-y-3">
         {filtered.map((auto) => {

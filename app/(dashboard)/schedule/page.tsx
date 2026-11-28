@@ -88,6 +88,14 @@ export default function SchedulePage() {
   const [accountId, setAccountId] = useState("");
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [caption, setCaption] = useState("");
+  const [autoKeywords, setAutoKeywords] = useState<Array<{ keyword: string; name: string; accountId: string }>>([]);
+  useEffect(() => {
+    fetch("/api/automations").then((r) => r.json()).then((p) => {
+      const list = (p?.data?.automations ?? p?.data ?? []) as Array<{ name: string; keywords?: string[]; isActive?: boolean; instagramAccountId?: string }>;
+      if (!Array.isArray(list)) return;
+      setAutoKeywords(list.filter((a) => a.isActive !== false).flatMap((a) => (a.keywords ?? []).map((k) => ({ keyword: k, name: a.name, accountId: a.instagramAccountId ?? "" }))));
+    }).catch(() => {});
+  }, []);
   const [when, setWhen] = useState(defaultTime);
   const [toInstagram, setToInstagram] = useState(true);
   const [toFacebook, setToFacebook] = useState(false);
@@ -386,6 +394,15 @@ export default function SchedulePage() {
           <label className="flex flex-col gap-2 text-sm font-semibold">
             Caption
             <textarea value={caption} onChange={(e) => setCaption(e.target.value)} rows={6} maxLength={2200} className={field} placeholder="Write the caption, hashtags included" />
+            {(() => {
+              const hit = autoKeywords.find((k) => new RegExp(`\\b${k.keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(caption));
+              return (
+                <p className="mt-1 flex justify-between text-xs text-muted">
+                  <span>{hit ? <>Tip: the word <b className="text-foreground">{hit.keyword.toUpperCase()}</b> triggers your &ldquo;{hit.name}&rdquo; automation</> : "\u00a0"}</span>
+                  <span>{caption.length.toLocaleString("en-NG")} / 2,200</span>
+                </p>
+              );
+            })()}
             <span className="text-xs font-normal text-muted">{caption.length} / 2200</span>
           </label>
 
