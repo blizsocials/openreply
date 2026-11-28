@@ -121,7 +121,7 @@ export default function SchedulePage() {
   useEffect(() => {
     fetch("/api/connect-links")
       .then((r) => r.json())
-      .then((p) => p.success && setChannels(p.data.connections.filter((c: { platform: string }) => c.platform === "youtube")))
+      .then((p) => p.success && setChannels(p.data.connections.filter((c: { platform: string }) => c.platform === "youtube" || c.platform === "tiktok")))
       .catch(() => {});
   }, []);
 
@@ -286,8 +286,8 @@ export default function SchedulePage() {
                 .map((c) => (
                   <IconToggle
                     key={c.id}
-                    id="youtube"
-                    title={kind === "REEL" ? `YouTube: ${c.name}` : "YouTube needs a video"}
+                    id={c.platform === "tiktok" ? "tiktok" : "youtube"}
+                    title={kind === "REEL" ? `${c.platform === "tiktok" ? "TikTok" : "YouTube"}: ${c.name}` : "Needs a video"}
                     disabled={kind !== "REEL"}
                     on={kind === "REEL" && chosenChannels.includes(c.id)}
                     onClick={() => setChosenChannels((list) => (list.includes(c.id) ? list.filter((x) => x !== c.id) : [...list, c.id]))}
@@ -468,7 +468,7 @@ export default function SchedulePage() {
   );
 }
 
-function IconToggle({ id, title, on, onClick, disabled }: { id: "instagram" | "facebook" | "youtube"; title: string; on: boolean; onClick: () => void; disabled?: boolean }) {
+function IconToggle({ id, title, on, onClick, disabled }: { id: "instagram" | "facebook" | "youtube" | "tiktok"; title: string; on: boolean; onClick: () => void; disabled?: boolean }) {
   return (
     <button
       type="button"

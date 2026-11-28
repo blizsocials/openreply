@@ -10,7 +10,7 @@ const YELLOW = "#FFD701";
 const PLATFORMS = [
   { id: "youtube", name: "YouTube", note: "Choose your channel, then approve uploads.", ready: true },
   { id: "pinterest", name: "Pinterest", note: "Coming soon", ready: false },
-  { id: "tiktok", name: "TikTok", note: "Coming soon", ready: false },
+  { id: "tiktok", name: "TikTok", note: "Sign in to TikTok, then approve posting.", ready: true },
   { id: "linkedin", name: "LinkedIn", note: "Coming soon", ready: false },
   { id: "threads", name: "Threads", note: "Coming soon", ready: false },
   { id: "snapchat", name: "Snapchat", note: "Coming soon", ready: false },
@@ -43,7 +43,7 @@ export default async function ConnectPage({
         select: { platform: true, name: true },
       })
     : [];
-  const status = query.youtube ?? (query.error === "expired" ? "expired" : undefined);
+  const status = query.youtube ?? query.tiktok ?? (query.error === "expired" ? "expired" : undefined);
 
   return (
     <main style={{ minHeight: "100vh", background: "#F4F3EF", padding: "40px 20px", fontFamily: "var(--font-montserrat), sans-serif", color: "#121212" }}>

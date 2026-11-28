@@ -19,12 +19,12 @@ const YELLOW = "#FFD701";
 const PLATFORM_NAMES: Record<string, string> = { youtube: "YouTube", pinterest: "Pinterest", tiktok: "TikTok", linkedin: "LinkedIn" };
 
 const NOTICES: Record<string, string> = {
-  connected: "YouTube channel connected.",
-  denied: "The YouTube connection was cancelled.",
+  connected: "Account connected.",
+  denied: "The connection was cancelled.",
   no_channel: "That Google account has no YouTube channel.",
-  not_configured: "YouTube is not switched on yet: the Google app settings are missing.",
+  not_configured: "This platform is not switched on yet: its app keys are missing in Vercel.",
   invalid: "The connection timed out. Please try again.",
-  failed: "The YouTube connection failed.",
+  failed: "The connection failed.",
 };
 
 export default function ClientsPage() {
@@ -56,7 +56,7 @@ export default function ClientsPage() {
       .catch(() => {});
     load();
     const q = new URLSearchParams(window.location.search);
-    const yt = q.get("youtube");
+    const yt = q.get("youtube") ?? q.get("tiktok");
     if (yt) {
       const reason = q.get("reason");
       void Promise.resolve().then(() => setMessage(`${NOTICES[yt] ?? yt}${reason ? ` (${reason})` : ""}`));
@@ -150,6 +150,9 @@ export default function ClientsPage() {
           </button>
           <a href="/api/connect/youtube/start" className="rounded-xl px-5 py-3 text-sm font-semibold border border-border bg-surface">
             Connect a YouTube channel myself
+          </a>
+          <a href="/api/connect/tiktok/start" className="rounded-xl px-5 py-3 text-sm font-semibold border border-border bg-surface">
+            Connect a TikTok account myself
           </a>
         </div>
         <p className="text-xs text-muted">Links stay valid for 7 days. The client signs in to each platform themselves.</p>

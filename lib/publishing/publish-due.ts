@@ -3,6 +3,7 @@ import { getBaseUrl, getMetaGraphApiVersion } from "@/lib/env";
 import { decryptToken } from "@/lib/meta/oauth";
 import { decodeFacebookLoginToken, metaFetch } from "@/lib/meta/facebook-login";
 import { uploadToYoutube, setYoutubeThumbnail } from "@/lib/connect/youtube";
+import { postToTiktok } from "@/lib/connect/tiktok";
 
 /**
  * Blizsocials scheduler: publishes posts whose time has come.
@@ -107,6 +108,10 @@ async function publishOne(postId: string) {
         // A custom thumbnail needs a verified YouTube channel; never fail the post over it.
         await setYoutubeThumbnail(connection.id, done[connectionId], `${getBaseUrl()}/api/media/${post.coverAssetId}`).catch(() => {});
       }
+    }
+    if (connection.platform === "tiktok") {
+      if (!post.videoUrl) throw new Error("TikTok needs a video");
+      done[connectionId] = await postToTiktok(connection.id, post.videoUrl, post.caption);
     }
     await prisma.scheduledPost.update({ where: { id: post.id }, data: { externalPostIds: done } });
   }
