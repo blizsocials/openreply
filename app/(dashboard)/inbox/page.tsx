@@ -96,8 +96,10 @@ function writeLocal(key: string, value: unknown) {
   } catch {}
 }
 
+// A slow answer from Instagram must not hold the screen hostage, so every read
+// gives up after 30 seconds and reports a failure for that one source.
 async function getJson(url: string) {
-  const r = await fetch(url, { cache: "no-store" });
+  const r = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
   return r.json();
 }
 
@@ -171,44 +173,61 @@ export default function InboxPage() {
     if (!accountId) return;
     setLoading(true);
     const q = `instagramAccountId=${accountId}`;
-    const [ig, igc, fb, fbc] = await Promise.all([
-      getJson(`/api/instagram/conversations?${q}`).catch(() => ({ success: false, error: "Failed to load" })),
-      getJson(`/api/instagram/comments?${q}`).catch(() => ({ success: false, error: "Failed to load" })),
-      getJson(`/api/facebook/inbox?kind=messenger&${q}`).catch(() => ({ success: false, error: "Failed to load" })),
-      getJson(`/api/facebook/inbox?kind=comments&${q}`).catch(() => ({ success: false, error: "Failed to load" })),
-    ]);
-    const errs: Partial<Record<Tab, string>> = {};
     type IgConv = { id: string; contact: { id: string; username: string | null }; updatedTime: string | null; lastMessage: { text: string; fromMe: boolean } | null; detailsUnavailable?: boolean };
     type FbConv = { id: string; contact: { id: string; name: string | null }; updatedTime: string | null; lastMessage: { text: string; fromMe: boolean } | null };
     type Cm = { id: string; text: string; username: string | null; timestamp: string; replied: boolean; media: Thread["media"] };
-    if (ig.success)
-      setIgDms((ig.data.conversations as IgConv[]).map((c) => ({
-        key: `ig:${c.id}`, platform: "ig", kind: "dm", id: c.id,
-        name: c.detailsUnavailable ? "Details unavailable" : `@${c.contact.username ?? "unknown"}`,
-        contactId: c.contact.id, time: c.updatedTime,
-        preview: c.lastMessage ? c.lastMessage.text || "📎 Attachment" : "No messages", fromMe: !!c.lastMessage?.fromMe,
-      })));
-    else errs.ig = ig.error;
-    if (fb.success)
-      setFbDms((fb.data.conversations as FbConv[]).map((c) => ({
-        key: `fb:${c.id}`, platform: "fb", kind: "dm", id: c.id, name: c.contact.name ?? "Facebook user",
-        contactId: c.contact.id, time: c.updatedTime,
-        preview: c.lastMessage ? c.lastMessage.text || "📎 Attachment" : "No messages", fromMe: !!c.lastMessage?.fromMe,
-      })));
-    else errs.fb = fb.error;
-    if (igc.success)
-      setIgComments((igc.data.comments as Cm[]).map((c) => ({
-        key: `igc:${c.id}`, platform: "ig", kind: "comment", id: c.id, name: `@${c.username ?? "unknown"}`, contactId: "",
-        time: c.timestamp, preview: c.text, fullText: c.text, fromMe: false, replied: c.replied, media: c.media,
-      })));
-    else errs.igc = igc.error;
-    if (fbc.success)
-      setFbComments((fbc.data.comments as Cm[]).map((c) => ({
-        key: `fbc:${c.id}`, platform: "fb", kind: "comment", id: c.id, name: c.username ?? "Facebook user", contactId: "",
-        time: c.timestamp, preview: c.text, fullText: c.text, fromMe: false, replied: c.replied, media: c.media,
-      })));
-    else errs.fbc = fbc.error;
-    setErrors(errs);
+    const failed = { success: false, error: "Failed to load" };
+    // Each source shows up as soon as it arrives. One slow source (Instagram
+    // messages can take a long time) no longer keeps the others waiting.
+    const settle = (key: Tab, res: { success?: boolean; error?: string }, apply: () => void) => {
+      if (res.success) {
+        apply();
+        setErrors((prev) => {
+          const { [key]: _removed, ...rest } = prev;
+          void _removed;
+          return rest;
+        });
+      } else {
+        setErrors((prev) => ({ ...prev, [key]: res.error ?? "Failed to load" }));
+      }
+    };
+    await Promise.all([
+      getJson(`/api/instagram/conversations?${q}`).catch(() => failed).then((ig) =>
+        settle("ig", ig, () =>
+          setIgDms((ig.data.conversations as IgConv[]).map((c) => ({
+            key: `ig:${c.id}`, platform: "ig", kind: "dm", id: c.id,
+            name: c.detailsUnavailable ? "Details unavailable" : `@${c.contact.username ?? "unknown"}`,
+            contactId: c.contact.id, time: c.updatedTime,
+            preview: c.lastMessage ? c.lastMessage.text || "📎 Attachment" : "No messages", fromMe: !!c.lastMessage?.fromMe,
+          })))
+        )
+      ),
+      getJson(`/api/instagram/comments?${q}`).catch(() => failed).then((igc) =>
+        settle("igc", igc, () =>
+          setIgComments((igc.data.comments as Cm[]).map((c) => ({
+            key: `igc:${c.id}`, platform: "ig", kind: "comment", id: c.id, name: `@${c.username ?? "unknown"}`, contactId: "",
+            time: c.timestamp, preview: c.text, fullText: c.text, fromMe: false, replied: c.replied, media: c.media,
+          })))
+        )
+      ),
+      getJson(`/api/facebook/inbox?kind=messenger&${q}`).catch(() => failed).then((fb) =>
+        settle("fb", fb, () =>
+          setFbDms((fb.data.conversations as FbConv[]).map((c) => ({
+            key: `fb:${c.id}`, platform: "fb", kind: "dm", id: c.id, name: c.contact.name ?? "Facebook user",
+            contactId: c.contact.id, time: c.updatedTime,
+            preview: c.lastMessage ? c.lastMessage.text || "📎 Attachment" : "No messages", fromMe: !!c.lastMessage?.fromMe,
+          })))
+        )
+      ),
+      getJson(`/api/facebook/inbox?kind=comments&${q}`).catch(() => failed).then((fbc) =>
+        settle("fbc", fbc, () =>
+          setFbComments((fbc.data.comments as Cm[]).map((c) => ({
+            key: `fbc:${c.id}`, platform: "fb", kind: "comment", id: c.id, name: c.username ?? "Facebook user", contactId: "",
+            time: c.timestamp, preview: c.text, fullText: c.text, fromMe: false, replied: c.replied, media: c.media,
+          })))
+        )
+      ),
+    ]);
     setLoading(false);
   }, [accountId]);
 
@@ -374,10 +393,15 @@ export default function InboxPage() {
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
+              {tab === "all" && shown.length > 0 && Object.keys(errors).length > 0 && (
+                <p className="border-b border-border bg-[#FFF1E0] px-4 py-2 text-sm text-[#7A3E00]" role="status">
+                  Could not load {(Object.keys(errors) as Tab[]).map((k) => ({ ig: "Instagram messages", igc: "Instagram comments", fb: "Messenger", fbc: "Facebook comments", all: "" })[k]).filter(Boolean).join(", ")}. The rest is shown. It will try again on its own.
+                </p>
+              )}
               {err && shown.length === 0 ? (
                 <p className="p-5 text-sm leading-relaxed" style={{ color: "#B42318" }}>{friendlyError(err)}</p>
               ) : loading && shown.length === 0 ? (
-                <p className="p-5 text-sm text-muted">Loading…</p>
+                <p className="p-5 text-sm text-muted" role="status">Loading your messages. Instagram can take up to half a minute.</p>
               ) : shown.length === 0 ? (
                 <p className="p-5 text-center text-sm text-muted">Nothing here right now.</p>
               ) : (

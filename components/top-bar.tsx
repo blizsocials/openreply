@@ -67,7 +67,7 @@ export default function TopBar({
       <div className="flex min-w-0 items-center gap-3 sm:gap-4">
         <button
           onClick={onMenuClick}
-          className="lg:hidden shrink-0 px-2.5 py-1.5 rounded border border-border text-sm text-muted hover:text-foreground"
+          className="lg:hidden shrink-0 min-h-11 min-w-11 px-3 rounded border border-border text-sm text-muted hover:text-foreground"
           aria-label={t("Toggle sidebar")}
         >
           {t("Menu")}

@@ -586,7 +586,7 @@ export default function CampaignBuilder({ mode, campaignId }: CampaignBuilderPro
               </span>
             </>
           ) : (
-            <span className="text-sm text-muted">{t("New campaign")}</span>
+            <span className="text-sm text-muted">New automation. Nothing is sent until you press Go Live.</span>
           )}
         </div>
         <div className="ml-auto flex items-center gap-2">

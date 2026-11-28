@@ -42,9 +42,9 @@ export function PlatformStrip() {
             <PlatformIcon id={id} size={16} />
             {p.name}
             {p.live ? (
-              <span className="rounded-full bg-[#DFF3DF] px-2 py-0.5 text-[10px] text-[#1E6B1E]">Live</span>
+              <span className="rounded-full bg-[#DFF3DF] px-2 py-0.5 text-xs text-[#1E6B1E]">Live</span>
             ) : (
-              <span className="rounded-full bg-[#FFF6BF] px-2 py-0.5 text-[10px] text-[#6B5A00]">Coming soon</span>
+              <span className="rounded-full bg-[#FFF6BF] px-2 py-0.5 text-xs text-[#6B5A00]">Coming soon</span>
             )}
           </span>
         );

@@ -173,7 +173,7 @@ export default function Sidebar({
           <a
             href="/api/facebook/connect"
             title="Pulls in every Instagram account linked to a Page in your Business Manager"
-            className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold"
+            className="flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold"
             style={{ background: "#1C1C1C", color: "#FFD701", border: "1px solid #333333" }}
           >
             <span aria-hidden>⟳</span> Add or refresh clients

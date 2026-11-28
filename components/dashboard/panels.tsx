@@ -285,7 +285,7 @@ export function TrendChart({ daily }: { daily: DailyPoint[] }) {
         type="button"
         onClick={() => setShowTable((v) => !v)}
         aria-expanded={showTable}
-        className="mt-3 text-sm font-medium text-foreground underline underline-offset-4"
+        className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-foreground underline underline-offset-4"
       >
         {showTable ? "Hide the numbers" : "Show the numbers"}
       </button>
